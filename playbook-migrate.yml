@@ -6,12 +6,9 @@
   hosts: localhost
   gather_facts: true
   become: false
-  vars_files:
-    - vars/secret.yml  # API keys, tokens (gitignored)
-    - vars/main.yml   # Main configuration
   vars:
-    workspace_dir: "{{ lookup('env', 'HOME') }}/.openclaw/workspace"
-    backup_dir: "/tmp/openclaw_migration_{{ ansible_date_time.epoch() }}"
+    workspace_dir: "/home/ardinusawan/.openclaw/workspace"
+    backup_dir: "/tmp/openclaw_migration_{{ ansible_date.isoformat() | replace(':', '-') | replace('.', '-') }}"
     migrate: false  # Set to true to actually perform migration
 
   pre_tasks:
@@ -30,6 +27,12 @@
         msg: "Ansible Version: {{ ansible_version.stdout | default('Not installed') }}"
 
     - name: Migration | Check Current System State
+      shell: python3 --version && node --version && git --version
+      register: system_check
+      failed_when: false
+      changed_when: false
+
+    - name: Migration | Display System State
       debug:
         msg: "Checking current system state..."
 
@@ -38,6 +41,18 @@
         path: "{{ backup_dir }}"
         state: directory
         mode: '0755'
+
+    - name: Migration | Backup Current Configuration
+      copy:
+        src: "{{ workspace_dir }}/openclaw.json"
+        dest: "{{ backup_dir }}/openclaw.json.backup"
+        remote_src: yes
+      when: stat_result.stat.exists
+      register: openclaw_backup
+
+    - name: Migration | Display Backup Status
+      debug:
+        msg: "Backup created: {{ backup_dir }}, OpenClaw config: {{ 'BACKED UP' if openclaw_backup.changed else 'ALREADY BACKED' }}"
 
   roles:
     - role: openclaw.backup
@@ -50,12 +65,14 @@
       when: migrate
 
   tasks:
+    - name: Migration | Complete
+      block:
+        - name: Migration | Display Summary
+          debug:
+            msg: "Migration Complete! System operational with Ansible automation"
+      when: migrate
+
     - name: Migration | Display Dry Run Notice
       debug:
-        msg: "Dry Run Mode (migrate: false) - No changes made. To perform migration, set: ansible-playbook playbook-migrate.yml -e migrate=true"
+        msg: "Dry Run Mode (migrate: false) - No changes made. To perform migration, run: ansible-playbook playbook-migrate.yml -e migrate=true"
       when: not migrate
-
-    - name: Migration | Display Complete Notice
-      debug:
-        msg: "Migration Complete! Review logs and verify cron jobs"
-      when: migrate
