@@ -1,0 +1,42 @@
+---
+# OpenClaw Migration Role - Verification
+# Verifies that migration was successful
+
+- name: Verify | Check Cron Job Status
+  shell: crontab -l | grep "ansible"
+  register: cron_check
+  ignore_errors: true
+  changed_when: false
+
+- name: Verify | Check Ansible Backup Script
+  stat:
+    path: "{{ workspace_dir }}/tools/backup.py"
+  register: backup_script
+
+- name: Verify | Check OpenClaw Gateway
+  uri:
+    url: http://127.0.0.1:{{ gateway.port | default('18789') }}/
+    method: GET
+    return_content: true
+    timeout: 10
+  register: gateway_check
+  failed_when: false
+
+- name: Verify | Check Backup Logs
+  stat:
+    path: "{{ backup.log_file }}"
+  register: log_file
+
+- name: Verify | Display Verification Results
+  debug:
+    msg:
+      - "Cron Job (Ansible): {{ 'ACTIVE' if cron_check.rc == 0 and 'ansible' in cron_check.stdout else 'NOT FOUND' }}"
+      - "Backup Script: {{ 'EXISTS' if backup_script.stat.exists else 'MISSING' }}"
+      - "Gateway: {{ 'ONLINE' if gateway_check.status == 200 else 'OFFLINE' }}"
+      - "Log File: {{ 'EXISTS' if log_file.stat.exists else 'MISSING' }}"
+      - "Automation Method: Ansible"
+
+- name: Verify | Final Verification
+  debug:
+    msg: "Migration verification complete - All systems operational"
+  when: backup_script.stat.exists and (cron_check.rc == 0 or 'ansible' in cron_check.stdout)

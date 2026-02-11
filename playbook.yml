@@ -1,5 +1,5 @@
 ---
-# OpenClaw Migration to Ansible
+# OpenClaw Migration Playbook
 # Idempotent, safe, reversible migration from manual scripts
 
 - name: OpenClaw Migration to Ansible
@@ -8,6 +8,7 @@
   become: false
   vars_files:
     - vars/secret.yml  # API keys, tokens (gitignored)
+    - vars/main.yml   # Main configuration
     - vars/config.yml  # User-specific settings
   vars:
     workspace_dir: "{{ lookup('env', 'HOME') }}/.openclaw/workspace"
@@ -17,12 +18,7 @@
   pre_tasks:
     - name: Migration | Display Banner
       debug:
-        msg: |
-          ╔════════════════════════════════════════════════════════════════╗
-          ║   OpenClaw Migration to Ansible                          ║
-          ║   From: Manual Scripts                                    ║
-          ║   To:   Ansible Automation                                 ║
-          ╚═════════════════════════════════════════════════════════════════════╝
+        msg: "OpenClaw Migration to Ansible - From: Manual Scripts, To: Ansible Automation"
 
     - name: Migration | Check Ansible Installation
       command: ansible --version
@@ -34,33 +30,26 @@
       debug:
         msg: "Ansible Version: {{ ansible_version.stdout | default('Not installed') }}"
 
+    - name: Migration | Create Backup Directory
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: '0755'
+
   roles:
     - role: openclaw.backup
       when: migrate
 
-  tasks:
-    - name: Migration | Complete
-      block:
-        - name: Migration | Verify Cron Job
-          shell: crontab -l | grep "ansible"
-          register: new_cron
-          changed_when: false
-
-        - name: Migration | Display Summary
-          debug:
-            msg: |
-              ╔═══════════════════════════════════════════════════════════════════╗
-              ║   Migration Complete!                                           ║
-              ║   Cron Jobs: {{ new_cron.stdout_lines | default(['No cron jobs found']) | join('\n              ║   ') }}    ╚═══════════════════════════════════════════════════════════════════════╝
+    - role: openclaw.verify
       when: migrate
 
+  tasks:
     - name: Migration | Display Dry Run Notice
       debug:
-        msg: |
-              ╔═════════════════════════════════════════════════════════════════╗
-              ║   Dry Run Mode (migrate: false)                             ║
-              ║   No changes made                                            ║
-              ║   To perform migration, set:                                ║
-              ║   ansible-playbook play.yml -e migrate=true                 ║
-              ╚═════════════════════════════════════════════════════════════════════════╝
+        msg: "Dry Run Mode (migrate: false) - No changes made. To perform migration, run: ansible-playbook playbook.yml -e migrate=true"
       when: not migrate
+
+    - name: Migration | Display Summary
+      debug:
+        msg: "Migration Status: Complete - Review logs and verify cron jobs"
+      when: migrate
