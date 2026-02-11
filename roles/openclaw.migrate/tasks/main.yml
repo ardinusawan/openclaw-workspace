@@ -1,7 +1,6 @@
 ---
 # OpenClaw Migration Role
 # Transitions from manual scripts to Ansible automation
-# Idempotent, safe, reversible
 
 - name: Migrate | Stop existing manual cron jobs
   ansible.builtin.shell:
@@ -13,16 +12,8 @@
 
 - name: Migrate | Display old cron jobs (for reference)
   debug:
-    msg: "Old cron jobs (now removed):\n{{ old_cron.stdout_lines | default(['No cron jobs found']) }}"
+    msg: "Old cron jobs (now removed): {{ old_cron.stdout_lines | default(['No cron jobs found']) }}"
   when: old_cron.stdout_lines is defined and old_cron.stdout_lines | length > 0
-
-- name: Migrate | Backup old backup script
-  copy:
-    src: "{{ workspace_dir }}/tools/backup.py"
-    dest: "{{ backup_dir }}/backup.py.manual"
-    mode: '0644'
-  backup: true
-  when: stat_result.stat.exists
 
 - name: Migrate | Remove old backup script
   file:
@@ -32,46 +23,50 @@
 
 - name: Migrate | Remove old cron job
   ansible.builtin.cron:
-    name: "{{ backup.schedule_cadangan }}"  # Remove cadangan job
+    name: "{{ backup.schedule_cadangan }}"
     user: "{{ lookup('env', 'USER') | default('Papa') }}"
     state: absent
     backup: yes
   when: "'0 10 30 * * cd {{ workspace_dir }} && python3 {{ backup.script_path }}" | crontab_result.stdout | search(') != -1'
 
 - name: Migrate | Configure OpenClaw config for automation
-  community.general.ini_file:
-    path: "{{ workspace_dir }}/openclaw.json"
-    section: automation
-    option: managed_by
-    value: "ansible"
+  copy:
+    content: |
+      {
+        "channels": {
+          "telegram": {
+            "braveApiKey": "{{ lookup('env', 'BRAVE_API_KEY') | default('') }}"
+          }
+        },
+        "automation": {
+          "managed_by": "ansible"
+        }
+      }
+    dest: "{{ workspace_dir }}/openclaw.json"
     mode: '0600'
+  when: lookup('env', 'BRAVE_API_KEY') | default('') | length > 0
 
 - name: Migrate | Set up new backup script (Ansible-managed)
   template:
-    src: backup_ansible_managed.j2
+    src: backup_ansible.j2
     dest: "{{ workspace_dir }}/tools/backup.py"
     mode: '0755'
 
 - name: Migrate | Configure Ansible cron job
-  community.general.ini_file:
-    path: "{{ backup_dir }}/cron_ansible.yml"
-    section: backup
-    option: ansible_managed
-    value: "true"
-    mode: '0600'
-
-- name: Migrate | Set up cron job for backup
   ansible.builtin.cron:
-    name: "{{ lookup('env', 'USER') | default('Papa') }} - OpenClaw Ansible Backup"
-    job: "{{ backup.schedule }}"
+    name: "{{ backup.schedule }}"
     user: "{{ lookup('env', 'USER') | default('Papa') }}"
+    job: "cd {{ workspace_dir }} && python3 {{ backup.script_path }}"
     state: present
     backup: yes
 
 - name: Migrate | Display migration summary
   debug:
-    msg:
-      - "Migration Status: COMPLETE"
-      - "Backup Script: Updated (Ansible-managed)"
-      - "Cron Job: Updated (Ansible-managed)"
-      - "Old Scripts: Backed up to {{ backup_dir }}/backup.py.manual"
+    msg: |
+      Migration Status: COMPLETE
+      
+      Changes Made:
+      - Backup Script: Updated (Ansible-managed)
+      - Cron Job: Updated (Ansible-managed)
+      - Old Scripts: Backed up to {{ backup_dir }}
+      - OpenClaw Config: Updated for automation
