@@ -1,0 +1,60 @@
+---
+# OpenClaw Role - SSH Key Management
+# Manages SSH keys for GitHub authentication (more secure than tokens)
+
+- name: SSH | Ensure .ssh directory exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.ssh"
+    state: directory
+    mode: '0700'
+    become: no
+
+- name: SSH | Check for existing SSH keys
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/.ssh/id_ed25519"
+    register: ssh_key_exists
+
+- name: SSH | Generate SSH Key Pair if not exists
+  community.crypto.openssh_keypair:
+    path: "{{ lookup('env', 'HOME') }}/.ssh/id_ed25519"
+    type: ed25519
+    state: present
+    comment: "OpenClaw Auto Backup - {{ ansible_date }}"
+
+#   - name: SSH | Copy public key to clipboard (if xclip exists)
+#     ansible.builtin.copy:
+#       content: "{{ lookup('file', lookup('env', 'HOME') + '/.ssh/id_ed25519.pub') }}"
+#       dest: /tmp/ssh_key.pub
+#     when: false
+
+#   - name: SSH | Display public key
+#     ansible.builtin.debug:
+#       msg: "Public Key: {{ lookup('file', lookup('env', 'HOME') + '/.ssh/id_ed25519.pub') }}"
+
+- name: SSH | Display Public Key Content
+  ansible.builtin.debug:
+    msg: "SSH Key Generated: {{ ssh_key_exists.stat.exists | ternary('Skip (already exists)', 'Generated new key') }}"
+  when: not ssh_key_exists.stat.exists
+  failed_when: false
+
+- name: SSH | Display Public Key (for GitHub)
+  ansible.builtin.command:
+    cmd: "cat {{ lookup('env', 'HOME') }}/.ssh/id_ed25519.pub"
+    register: ssh_pubkey
+    changed_when: false
+    failed_when: false
+
+- name: SSH | Instructions for GitHub
+  ansible.builtin.debug:
+    msg: |
+      📋 SSH Key Instructions:
+
+      1. Public Key: {{ ssh_pubkey.stdout_lines[0] }}
+      2. Copy key above
+      3. Go to: https://github.com/settings/keys
+      4. Click "New SSH Key"
+      5. Paste key
+      6. Name: OpenClaw-AutoBackup
+      7. Click "Add SSH Key"
+
+      Then update vars/secret.yml to use SSH keys instead of tokens

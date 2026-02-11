@@ -1,0 +1,92 @@
+---
+# OpenClaw Role - System Setup
+# Installs system packages and configurations
+
+- name: System Update
+  ansible.builtin.apt:
+    update_cache: yes
+    update_cache_valid_time: 86400  # 24 hours
+    upgrade: dist
+    cache_valid_time: 3600
+
+- name: Install Essential System Packages
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - curl
+    - git
+    - wget
+    - vim
+    - htop
+    - tmux
+    - unzip
+    - build-essential
+    - libssl-dev
+    - libffi-dev
+
+- name: Install System Development Tools
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - python3-pip
+    - python3-venv
+    - python3-dev
+    - python-is-python3
+    - pkg-config
+
+- name: Install Cron Service
+  ansible.builtin.apt:
+    name: cron
+    state: present
+
+- name: Install Voice/TTS Tools
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - espeak-ng
+    - espeak
+    - ffmpeg
+    - libopusfile0
+
+- name: Install OCR Tools
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - tesseract-ocr
+    - tesseract-ocr-indo
+    - tesseract-ocr-eng
+
+- name: Install Additional System Tools
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - jq
+    - tree
+    - rsync
+    - net-tools
+
+- name: Configure System Timezone
+  community.general.timezone:
+    name: "{{ lookup('env', 'USER') | default('Papa') }}"
+    timezone: "Asia/Jakarta"
+
+- name: Configure Locale
+  ansible.builtin.locale_gen:
+    name: en_US.UTF-8
+    state: present
+
+- name: System Cleanup
+  ansible.builtin.apt:
+    autoremove: yes
+    purge: false
+    state: absent
+    loop:
+      - "{{ item }}"
+  loop:
+    - "{{ item }}"
+      when: false  # Only enable if needed

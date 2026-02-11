@@ -1,0 +1,82 @@
+---
+# OpenClaw Role - OpenClaw Gateway Configuration
+# Manages OpenClaw gateway configuration with best practices
+
+- name: Gateway | Ensure OpenClaw config directory exists
+  ansible.builtin.file:
+    path: "{{ workspace_dir }}/.config/openclaw"
+    state: directory
+    mode: '0755'
+
+- name: Gateway | Configure Web Search (Brave API)
+  ansible.builtin.copy:
+    content: |
+      {
+        "channels": {
+          "telegram": {
+            "enabled": true,
+            "braveApiKey": "{{ lookup('env', 'BRAVE_API_KEY') | default('') }}"
+          }
+        }
+      }
+    dest: "{{ workspace_dir }}/openclaw.json"
+    mode: '0600'
+    backup: true
+  when: lookup('env', 'BRAVE_API_KEY') is defined
+
+- name: Gateway | Configure Bot Token
+  community.general.ini_file:
+    path: "{{ workspace_dir }}/openclaw.json"
+    section: channels/telegram
+    option: botToken
+    value: "{{ lookup('env', 'OPENCLAW_BOT_TOKEN') | default('') }}"
+    mode: '0600'
+    backup: true
+  when: lookup('env', 'OPENCLAW_BOT_TOKEN') is defined
+
+- name: Gateway | Configure Gateway Settings
+  community.general.ini_file:
+    path: "{{ workspace_dir }}/openclaw.json"
+    section: gateway
+    option: port
+    value: "{{ gateway.port | default('18789') }}"
+    backup: true
+
+  community.general.ini_file:
+    path: "{{ workspace_dir }}/openclaw.json"
+    section: gateway
+    option: mode
+    value: "{{ gateway.mode | default('local') }}"
+    backup: true
+
+  community.general.ini_file:
+    path: "{{ workspace_dir }}/openclaw.json"
+    section: gateway
+    option: bind
+    value: "{{ gateway.bind | default('loopback') }}"
+    backup: true
+
+- name: Gateway | Restart OpenClaw Gateway
+  ansible.builtin.systemd:
+    name: openclaw
+    state: restarted
+    enabled: true
+    when: gateway.restart | default(false)
+  become: true
+
+- name: Gateway | Verify Gateway Status
+  ansible.builtin.uri:
+    url: http://127.0.0.1:{{ gateway.port | default('18789') }}
+    method: GET
+    return_content: true
+    timeout: 10
+    register: gateway_status
+
+- name: Gateway | Display Gateway Status
+  ansible.builtin.debug:
+    msg: "Gateway Status: {{ 'ONLINE' if gateway_status.status == 200 else 'OFFLINE' }}"
+  when: gateway_status is defined
+
+- name: Gateway | Create Workspace Link
+  ansible.builtin.debug:
+    msg: "OpenClaw Dashboard: http://127.0.0.1:{{ gateway.port | default('18789') }}"

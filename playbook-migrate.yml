@@ -1,0 +1,106 @@
+---
+# OpenClaw Migration Playbook
+# Migrasi dari manual scripts ke Ansible
+# Idempotent, safe, reversible
+
+- name: OpenClaw Migration to Ansible
+  hosts: localhost
+  gather_facts: true
+  become: false
+  vars:
+    workspace_dir: "{{ lookup('env', 'HOME') }}/.openclaw/workspace"
+    backup_dir: "/tmp/openclaw_migration_{{ ansible_date_time.epoch() }}"
+    migrate: false  # Set to true to actually perform migration
+
+  pre_tasks:
+    - name: Migration | Display Banner
+      debug:
+        msg: |
+          ╔══════════════════════════════════════════════════════╗
+          ║   OpenClaw Migration to Ansible                    ║
+          ║   From: Manual Scripts                                   ║
+          ║   To:   Ansible Automation                               ║
+          ╚══════════════════════════════════════════════════════╝
+
+    - name: Migration | Check Current State
+      debug:
+        msg: "Checking current system state..."
+
+    - name: Migration | Create Backup Directory
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Migration | Backup Current Configuration
+      block:
+        - name: Backup | OpenClaw Config
+          copy:
+            src: "{{ workspace_dir }}/openclaw.json"
+            dest: "{{ backup_dir }}/openclaw.json.backup"
+            remote_src: yes
+          when: stat_result.stat.exists
+          register: openclaw_backup
+
+        - name: Backup | Cron Configuration
+          copy:
+            src: "/var/spool/cron/{{ lookup('env', 'USER') | default('Papa') }}/backup.py"
+            dest: "{{ backup_dir }}/cron_backup.sh.backup"
+            remote_src: yes
+          when: crontab_result.rc == 0 and crontab_result.stdout | length > 0
+          register: cron_backup
+          ignore_errors: true
+
+        - name: Migration | Display Backup Status
+          debug:
+            msg:
+              - "Backup created: {{ backup_dir }}"
+              - "OpenClaw config: {{ 'BACKED UP' if openclaw_backup.changed else 'ALREADY BACKED' }}"
+              - "Cron job: {{ 'BACKED UP' if cron_backup is skipped else 'SKIPPED (no cron job)' }}"
+      rescue:
+        - name: Migration | Backup Failed
+          debug:
+            msg: "Backup failed (non-critical, continuing...)"
+
+  roles:
+    - role: openclaw.current_state
+      when: migrate
+
+    - role: openclaw.backup
+      when: migrate
+
+    - role: openclaw.migrate
+      when: migrate
+
+    - role: openclaw.verify
+      when: migrate
+
+  tasks:
+    - name: Migration | Complete
+      block:
+        - name: Migration | Verify Cron Job
+          shell: crontab -l | grep "ansible"
+          register: new_cron
+          changed_when: false
+          ignore_errors: true
+
+        - name: Migration | Display Summary
+          debug:
+            msg: |
+              ╔══════════════════════════════════════════════════════╗
+              ║   Migration Complete!                                ║
+              ║   Current Cron Jobs (Ansible):                      ║
+              ║   {{ new_cron.stdout_lines | default(['No cron jobs found']) | join('\n              ║   ') }}
+              ╚══════════════════════════════════════════════════════╝
+      when: migrate
+
+      - name: Migration | Display Dry Run Notice
+      debug:
+        msg: |
+              ╔══════════════════════════════════════════════════════╝
+              ║   Dry Run Mode (migrate: false)                     ║
+              ║   No changes made                                    ║
+              ║   To perform migration, set:                        ║
+              ║   ansible-playbook playbook.yml -e migrate=true    ║
+              ╚══════════════════════════════════════════════════════╝
+      when: not migrate

@@ -1,0 +1,115 @@
+---
+# Main OpenClaw Configuration Variables
+# Non-sensitive configuration (can be committed to git)
+
+workspace_dir: "{{ lookup('env', 'HOME') }}/.openclaw/workspace"
+private_dir: "{{ workspace_dir }}/private-data"
+
+# User Information
+user:
+  name: "Ardi Nusawan"
+  email: "ardinusawan@users.noreply.github.com"
+  timezone: "Asia/Jakarta"
+
+# System Configuration
+system:
+  os: "Ubuntu-based Linux"
+  platform: "Orange Pi 5 (ARM64)"
+  arch: "arm64"
+
+# OpenClaw Gateway Configuration
+gateway:
+  port: 18789
+  mode: "local"
+  bind: "loopback"
+  tailscale:
+    mode: "off"
+    reset_on_exit: false
+
+# OpenClaw Agent Configuration
+agents:
+  model:
+    primary: "zai/glm-4.7"
+  workspace: "{{ workspace_dir }}"
+  max_concurrent: 4
+  subagents:
+    max_concurrent: 8
+
+# Git Repository Configuration
+git:
+  public:
+    repo: "openclaw-workspace"
+    url: "https://github.com/ardinusawan/openclaw-workspace.git"
+    branch: "main"
+  private:
+    repo: "openclaw-private-data"
+    url: "https://github.com/ardinusawan/openclaw-private-data.git"
+    branch: "main"
+
+# Backup Configuration
+backup:
+  private:
+    enabled: true
+    schedule: "0 10 * * *"  # Daily at 10:00 AM
+    schedule_cadangan: "0 10 30 * * *"  # Cadangan at 10:30 AM
+  log_file: "/home/ardinusawan/cron_backup.log"
+  script_path: "{{ workspace_dir }}/tools/backup.py"
+  retain_days: 30  # Retain logs for 30 days
+
+# Telegram Configuration (non-sensitive)
+telegram:
+  enabled: true
+  dm_policy: "pairing"
+  group_policy: "allowlist"
+  stream_mode: "partial"
+  api:
+    search_engine: "brave"  # Options: brave, duckduckgo, serpapi
+    brave:
+      api_url: "https://api.search.brave.com/res/v1/web/search"
+      requests_limit: 2000  # Free tier limit per month
+      timeout: 10  # Request timeout in seconds
+
+# Cron Job Configuration
+cron:
+  enabled: true
+  backup_job:
+    name: "OpenClaw Auto Daily Backup"
+    schedule: "0 10 * * *"  # Daily at 10:00 AM (WIB)
+    user: "{{ lookup('env', 'USER') }}"
+    log_file: "{{ backup.log_file }}"
+    script: "python3 {{ backup.script_path }}"
+    notify_on:
+      success: true
+      failure: true
+
+# Notification Configuration
+notifications:
+  enabled: true
+  providers:
+    - telegram
+    - slack  # Optional
+    - email  # Optional
+  success_template: "✅ OpenClaw Auto Backup - SUCCESS"
+  failure_template: "❌ OpenClaw Auto Backup - FAILED"
+
+# Development Configuration (optional)
+dev:
+  debug: false
+  log_level: "INFO"  # Options: DEBUG, INFO, WARNING, ERROR
+  dry_run: false  # If true, no actual changes made
+
+# Security Configuration
+security:
+  git_sign_commits: true  # Sign git commits if GPG key available
+  require_sudo: false  # Does it require sudo?
+  allowed_users:
+    - "{{ lookup('env', 'USER') }}"
+  allowed_ips:
+    - "127.0.0.1"
+    - "::1"
+
+# Maintenance Configuration
+maintenance:
+  auto_update: false  # Auto-update OpenClaw gateway
+  log_rotation: true  # Rotate logs automatically
+  log_retention_days: 7  # Retain logs for 7 days

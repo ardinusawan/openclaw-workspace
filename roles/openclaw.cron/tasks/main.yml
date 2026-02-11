@@ -1,0 +1,44 @@
+---
+# OpenClaw Role - Cron Job Management
+# Sets up scheduled automated backups with Telegram notifications
+
+- name: Cron | Ensure log directory exists
+  ansible.builtin.file:
+    path: "{{ backup.log_file }}"
+    state: directory
+    mode: '0755'
+
+- name: Cron | Ensure backup script exists
+  ansible.builtin.file:
+    src: "{{ workspace_dir }}/tools/backup.py"
+    dest: "{{ backup.script_path }}"
+    mode: '0755'
+
+- name: Cron | Create crontab entries
+  ansible.builtin.cron:
+    name: "{{ lookup('env', 'USER') | default('Papa') }} - OpenClaw Auto Backup"
+    job: "{{ backup.schedule }}"
+    user: "{{ lookup('env', 'USER') | default('Papa') }}"
+    state: present
+    backup: yes
+
+- name: Cron | Display cron jobs
+  ansible.builtin.command:
+    cmd: crontab -l | grep "{{ backup.script_path }}" || echo "No cron jobs found"
+    register: cron_list
+    changed_when: false
+
+- name: Cron | Display scheduled backups
+  ansible.builtin.debug:
+    msg: "Cron job configured: {{ backup.schedule }}"
+    when: cron_list.rc == 0
+
+- name: Cron | Setup log rotation (optional)
+  ansible.builtin.cron:
+    name: "{{ lookup('env', 'USER') | default('Papa') }} - OpenClaw Log Rotation"
+    user: "{{ lookup('env', 'USER') | default('Papa') }}"
+    special_time: daily
+    job: "0 2 * * * find {{ backup.log_file }} -type f -mtime +30 -delete"
+    state: present
+    when: backup.log_retention | bool
+    backup: yes

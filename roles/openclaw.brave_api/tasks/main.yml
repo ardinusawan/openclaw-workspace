@@ -1,0 +1,68 @@
+---
+# OpenClaw Role - Brave API Integration
+# Manages Brave Search API keys and configuration
+
+- name: Brave | Ensure Brave API directory exists
+  ansible.builtin.file:
+    path: "{{ workspace_dir }}/.config/brave"
+    state: directory
+    mode: '0755'
+
+- name: Brave | Store Brave API Key from Secret
+  ansible.builtin.copy:
+    content: "{{ lookup('env', 'BRAVE_API_KEY') | default('') }}"
+    dest: "{{ workspace_dir }}/.config/brave/api_key.txt"
+    mode: '0600'
+    no_log: true  # Don't log the API key
+  when: lookup('env', 'BRAVE_API_KEY') | default('') | length > 0
+
+- name: Brave | Set Brave API Key in OpenClaw Config
+  ansible.builtin.blockinfile:
+    path: "{{ workspace_dir }}/openclaw.json"
+    marker: "# OPENCLAW_BRAVE_CONFIG"
+    block: |
+      "channels": {
+        "telegram": {
+          "braveApiKey": "{{ lookup('file', workspace_dir + '/.config/brave/api_key.txt') }}"
+        }
+      }
+    create: yes
+    marker: "# END_OPENCLAW_BRAVE_CONFIG"
+  no_log: true
+  when: lookup('env', 'BRAVE_API_KEY') | default('') | length > 0
+
+- name: Brave | Verify Brave API Key
+  ansible.builtin.debug:
+    msg: "Brave API Key configured"
+    verbosity: 0
+  when: lookup('env', 'BRAVE_API_KEY') | default('') | length > 0
+
+- name: Brave | Test Brave API Connection
+  ansible.builtin.uri:
+    url: "https://api.search.brave.com/res/v1/web/search"
+    method: POST
+    headers:
+      Accept: "application/json"
+      X-Subscription-Token: "{{ lookup('file', workspace_dir + '/.config/brave/api_key.txt') }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      q: "OpenClaw test"
+      count: 1
+    return_content: true
+    register: brave_test_result
+    timeout: 10
+  no_log: true  # Don't log API responses
+  when: lookup('env', 'BRAVE_API_KEY') | default('') | length > 0
+  failed_when: false
+
+- name: Brave | Display Test Result
+  ansible.builtin.debug:
+    msg: "Brave API Test: {{ 'SUCCESS' if brave_test_result.json is defined else 'FAILED' }}"
+    when: lookup('env', 'BRAVE_API_KEY') | default('') | length > 0
+
+- name: Brave | Store Usage Stats
+  ansible.builtin.copy:
+    content: "{{ brave_test_result.json | default({'total': 0}) | default(0) }}/{{ telegram.brave.requests_limit | default(2000) }}"
+    dest: "{{ workspace_dir }}/.config/brave/usage.txt"
+  when: brave_test_result.json is defined

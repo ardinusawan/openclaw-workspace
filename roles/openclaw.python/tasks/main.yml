@@ -1,0 +1,96 @@
+---
+# OpenClaw Role - Python Environment Setup
+# Manages Python installation via asdf and package management
+
+- name: Python | Verify Installation
+  ansible.builtin.shell:
+    cmd: "{{ lookup('env', 'HOME') }}/.asdf/shims/python --version"
+    register: python_version
+    failed_when: false
+  changed_when: false
+
+- name: Python | Display Version
+  ansible.builtin.debug:
+    msg: "Python Version: {{ python_version.stdout | default('N/A') }}"
+  when: python_version.rc == 0
+
+- name: Python | Ensure pip is installed
+  ansible.builtin.shell:
+    cmd: "python3 -m pip --version"
+    register: pip_version
+    failed_when: false
+  changed_when: false
+
+- name: Python | Install pip if missing
+  ansible.builtin.shell:
+    cmd: curl https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+    register: pip_download
+  when: pip_version.rc != 0
+  until: pip_download.rc == 0
+  retries: 3
+  delay: 5
+
+- name: Python | Install pip using get-pip
+  ansible.builtin.shell:
+    cmd: "python3 /tmp/get-pip.py --user --break-system-packages"
+    register: pip_install
+  when: pip_download.rc == 0
+  until: pip_install.rc == 0
+  retries: 3
+  delay: 5
+
+- name: Python | Upgrade pip
+  ansible.builtin.shell:
+    cmd: "python3 -m pip install --upgrade pip"
+    register: pip_upgrade
+  until: pip_upgrade.rc == 0
+  retries: 3
+  delay: 5
+
+- name: Python | Install Essential Packages
+  ansible.builtin.pip:
+    name: "{{ item }}"
+    state: present
+  extra_args: --break-system-packages
+  loop:
+    - yfinance
+    - pandas
+    - numpy
+    - pyttsx3
+    - duckduckgo-search
+    - playwright
+    - pytesseract
+    - Pillow
+  retries: 3
+  delay: 10
+
+- name: Python | Install Optional Packages
+  ansible.builtin.pip:
+    name: "{{ item }}"
+    state: present
+    extra_args: --break-system-packages
+  loop:
+    - investpy
+    - requests
+    - beautifulsoup4
+  retries: 2
+  delay: 10
+  ignore_errors: true  # Optional packages
+
+- name: Python | Install Playwright Browsers
+  ansible.builtin.shell:
+    cmd: "playwright install"
+    register: playwright_install
+  until: playwright_install.rc == 0
+  retries: 2
+  delay: 10
+  ignore_errors: false
+
+- name: Python | Summary
+  ansible.builtin.debug:
+    msg:
+      - "Python Installation: Complete"
+      - "Essential Packages: yfinance, pandas, numpy, pyttsx3, duckduckgo-search, playwright, pytesseract, Pillow"
+      - "Optional Packages: investpy, requests, beautifulsoup4"
+      - "Playwright Browsers: Installed"
+  when: playwright_install.rc == 0

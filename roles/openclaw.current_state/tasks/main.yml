@@ -1,0 +1,70 @@
+---
+# OpenClaw Migration Role - Check Current State
+# Gathers facts about current system configuration
+
+- name: Current State | Check Python Installation
+  ansible.builtin.shell:
+    cmd: "{{ lookup('env', 'HOME') }}/.asdf/shims/python --version"
+  register: python_version
+  failed_when: false
+  changed_when: false
+
+- name: Current State | Check Node.js Installation
+  ansible.builtin.shell:
+    cmd: "{{ lookup('env', 'HOME') }}/.asdf/shims/node --version"
+  register: node_version
+  failed_when: false
+  changed_when: false
+
+- name: Current State | Check Rust Installation
+  ansible.builtin.shell:
+    cmd: "rustc --version"
+  register: rust_version
+  failed_when: false
+  changed_when: false
+
+- name: Current State | Check Git Configuration
+  ansible.builtin.shell:
+    cmd: "git config user.name && git config user.email"
+  register: git_config
+  failed_when: false
+  changed_when: false
+
+- name: Current State | Check Cron Jobs
+  ansible.builtin.shell:
+    cmd: "crontab -l | grep -v ansible"
+  register: current_cron
+  failed_when: false
+  changed_when: false
+
+- name: Current State | Check OpenClaw Gateway
+  ansible.builtin.uri:
+    url: http://127.0.0.1:18789/status
+    method: GET
+    return_content: true
+    register: gateway_status
+  failed_when: false
+  changed_when: false
+
+- name: Current State | Check Current Backup Method
+  stat:
+    path: "{{ workspace_dir }}/tools/backup.py"
+  register: current_backup_script
+
+- name: Current State | Determine Current Automation Method
+  ansible.builtin.set_fact:
+    current_automation: "{{ 'Ansible' if 'ansible' in current_cron.stdout else 'Manual Scripts' }}"
+    has_backup_script: "{{ current_backup_script.stat.exists | bool }}"
+    has_cron_jobs: "{{ current_cron.stdout_lines | length > 0 }}"
+
+- name: Current State | Display Summary
+  ansible.builtin.debug:
+    msg:
+      - "Python: {{ python_version.stdout | default('Not installed via asdf') }}"
+      - "Node.js: {{ node_version.stdout | default('Not installed via asdf') }}"
+      - "Rust: {{ rust_version.stdout | default('Not installed') }}"
+      - "Git: {{ git_config.stdout_lines | default(['Not configured']) | join(', ') }}"
+      - "Automation: {{ current_automation }}"
+      - "Cron Jobs: {{ current_cron.stdout_lines | length }} found"
+      - "Gateway: {{ 'RUNNING' if gateway_status.status == 200 else 'UNKNOWN' }}"
+      - "Backup Script: {{ 'EXISTS' if has_backup_script else 'MISSING' }}"

@@ -1,0 +1,109 @@
+---
+# OpenClaw Role - asdf Setup
+# Manages asdf version manager and plugin installations
+
+- name: Install asdf
+  ansible.builtin.git:
+    repo: "https://github.com/asdf-vm/asdf.git"
+    dest: "{{ lookup('env', 'HOME') }}/.asdf"
+    version: "v0.14.0"
+    update: no
+    depth: 1
+
+- name: Add asdf to shell profile
+  ansible.builtin.blockinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    marker: "# START: asdf initialization"
+    block: |
+      . "$HOME/.asdf/asdf.sh"
+      . "$HOME/.asdf/completions/asdf.bash"
+    create: yes
+
+- name: Reload shell configuration
+  ansible.builtin.shell:
+    cmd: "source {{ lookup('env', 'HOME') }}/.bashrc"
+    changed_when: false
+
+- name: Install asdf plugins
+  ansible.builtin.shell:
+    cmd: "{{ lookup('env', 'HOME') }}/.asdf/bin/asdf plugin add {{ item }}"
+    loop:
+      - python
+      - nodejs
+      - rust
+    register: plugin_result
+
+- name: Verify asdf plugins
+  ansible.builtin.shell:
+    cmd: "{{ lookup('env', 'HOME') }}/.asdf/bin/asdf plugin list"
+    register: plugin_list
+    changed_when: false
+
+- name: Display installed plugins
+  ansible.builtin.debug:
+    msg: "Installed asdf plugins:\n{{ plugin_list.stdout_lines }}"
+
+- name: Set Python as global version
+  ansible.builtin.shell:
+    cmd: "{{ lookup('env', 'HOME') }}/.asdf/bin/asdf install python latest"
+  register: python_install
+  until: python_install.rc == 0
+  retries: 3
+  delay: 5
+
+- name: Set Python as global
+  ansible.builtin.shell:
+    cmd: "{{ lookup('env', 'HOME') }}/.asdf/bin/asdf global python latest"
+  when: python_install.rc == 0
+
+- name: Verify Python installation
+  ansible.builtin.shell:
+    cmd: "{{ lookup('env', 'HOME') }}/.asdf/shims/python --version"
+  register: python_version
+  changed_when: false
+
+- name: Set Node.js as global version
+  ansible.builtin.shell:
+    cmd: "{{ lookup('env', 'HOME') }}/.asdf/bin/asdf install nodejs lts"
+  register: nodejs_install
+  until: nodejs_install.rc == 0
+  retries: 3
+  delay: 5
+
+- name: Set Node.js as global
+  ansible.builtin.shell:
+    cmd: "{{ lookup('env', 'HOME') }}/.asdf/bin/asdf global nodejs lts"
+  when: nodejs_install.rc == 0
+
+- name: Verify Node.js installation
+  ansible.builtin.shell:
+    cmd: "{{ lookup('env', 'HOME') }}/.asdf/shims/node --version"
+  register: node_version
+  changed_when: false
+
+- name: Set Rust as global version
+  ansible.builtin.shell:
+    cmd: "{{ lookup('env', 'HOME') }}/.asdf/bin/asdf install rust latest"
+  register: rust_install
+  until: rust_install.rc == 0
+  retries: 3
+  delay: 5
+
+- name: Set Rust as global
+  ansible.builtin.shell:
+    cmd: "{{ lookup('env', 'HOME') }}/.asdf/bin/asdf global rust latest"
+  when: rust_install.rc == 0
+
+- name: Verify Rust installation
+  ansible.builtin.shell:
+    cmd: "rustc --version"
+  register: rust_version
+  changed_when: false
+
+- name: Summary
+  ansible.builtin.debug:
+    msg:
+      - "asdf Installation: Complete"
+      - "Python Version: {{ python_version.stdout | default('N/A') }}"
+      - "Node.js Version: {{ node_version.stdout | default('N/A') }}"
+      - "Rust Version: {{ rust_version.stdout | default('N/A') }}"

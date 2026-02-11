@@ -1,0 +1,49 @@
+---
+# OpenClaw Role - Git Repository Operations
+# Clones, configures, and manages Git repositories (public & private)
+
+- name: Git | Ensure workspace directory exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.openclaw/workspace"
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Git | Clone Public Repository
+  ansible.builtin.git:
+    repo: "{{ git.public.url }}"
+    dest: "{{ workspace_dir }}"
+    version: "{{ git.public.branch | default('main') }}"
+    update: yes
+    force: yes
+  when: lookup('env', 'GIT_PUBLIC_CLONED', default=False) | bool == false
+
+- name: Git | Clone Private Submodule
+  ansible.builtin.git:
+    repo: "{{ git.private.url }}"
+    dest: "{{ workspace_dir }}/private-data"
+    version: "{{ git.private.branch | default('main') }}"
+    update: yes
+    force: yes
+  when: lookup('env', 'GIT_PRIVATE_CLONED', default=False) | bool == false
+  become: false  # Private repo cloning handles auth separately
+
+- name: Git | Configure Git User
+  ansible.builtin.git_config:
+    scope: global
+    name: user.name
+    value: "{{ git.user.name | default('ardinusawan') }}"
+  become: false
+
+- name: Git | Configure Git Email
+  ansible.builtin.git_config:
+    scope: global
+    name: user.email
+    value: "{{ git.user.email | default('ardinusawan@users.noreply.github.com') }}"
+  become: false
+
+- name: Git | Mark Repositories as Cloned
+  ansible.builtin.set_fact:
+    GIT_PUBLIC_CLONED: true
+    GIT_PRIVATE_CLONED: true
+  cacheable: true

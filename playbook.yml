@@ -1,0 +1,66 @@
+---
+# OpenClaw Migration to Ansible
+# Idempotent, safe, reversible migration from manual scripts
+
+- name: OpenClaw Migration to Ansible
+  hosts: localhost
+  gather_facts: true
+  become: false
+  vars_files:
+    - vars/secret.yml  # API keys, tokens (gitignored)
+    - vars/config.yml  # User-specific settings
+  vars:
+    workspace_dir: "{{ lookup('env', 'HOME') }}/.openclaw/workspace"
+    backup_dir: "/tmp/openclaw_migration_{{ ansible_date_time.epoch() }}"
+    migrate: false  # Set to true to actually perform migration
+
+  pre_tasks:
+    - name: Migration | Display Banner
+      debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════════════╗
+          ║   OpenClaw Migration to Ansible                          ║
+          ║   From: Manual Scripts                                    ║
+          ║   To:   Ansible Automation                                 ║
+          ╚═════════════════════════════════════════════════════════════════════╝
+
+    - name: Migration | Check Ansible Installation
+      command: ansible --version
+      register: ansible_version
+      failed_when: false
+      changed_when: false
+
+    - name: Migration | Display Ansible Version
+      debug:
+        msg: "Ansible Version: {{ ansible_version.stdout | default('Not installed') }}"
+
+  roles:
+    - role: openclaw.backup
+      when: migrate
+
+  tasks:
+    - name: Migration | Complete
+      block:
+        - name: Migration | Verify Cron Job
+          shell: crontab -l | grep "ansible"
+          register: new_cron
+          changed_when: false
+
+        - name: Migration | Display Summary
+          debug:
+            msg: |
+              ╔═══════════════════════════════════════════════════════════════════╗
+              ║   Migration Complete!                                           ║
+              ║   Cron Jobs: {{ new_cron.stdout_lines | default(['No cron jobs found']) | join('\n              ║   ') }}    ╚═══════════════════════════════════════════════════════════════════════╝
+      when: migrate
+
+    - name: Migration | Display Dry Run Notice
+      debug:
+        msg: |
+              ╔═════════════════════════════════════════════════════════════════╗
+              ║   Dry Run Mode (migrate: false)                             ║
+              ║   No changes made                                            ║
+              ║   To perform migration, set:                                ║
+              ║   ansible-playbook play.yml -e migrate=true                 ║
+              ╚═════════════════════════════════════════════════════════════════════════╝
+      when: not migrate

@@ -1,0 +1,66 @@
+---
+# OpenClaw Role - Node.js Installation
+# Manages Node.js LTS installation via asdf
+
+- name: Node.js | Verify Installation
+  ansible.builtin.shell:
+    cmd: "node --version"
+    register: node_version
+    failed_when: false
+    changed_when: false
+
+- name: Node.js | Display Version
+  ansible.builtin.debug:
+    msg: "Node.js Version: {{ node_version.stdout | default('N/A') }}"
+  when: node_version.rc == 0
+
+- name: Node.js | Install via asdf
+  ansible.builtin.shell:
+    cmd: "{{ lookup('env', 'HOME') }}/.asdf/bin/asdf install nodejs lts"
+    register: nodejs_install
+  when: node_version.rc != 0
+  until: nodejs_install.rc == 0
+  retries: 3
+  delay: 5
+
+- name: Node.js | Set as Global Version
+  ansible.builtin.shell:
+    cmd: "{{ lookup('env', 'HOME') }}/.asdf/bin/asdf global nodejs lts"
+    register: nodejs_global
+  when: nodejs_install.rc == 0 or node_version.rc != 0
+  failed_when: false
+
+- name: Node.js | Create Symlinks to /usr/bin
+  ansible.builtin.file:
+    src: "{{ lookup('env', 'HOME') }}/.asdf/installs/nodejs/{{ lookup('env', 'HOME') }}/.asdf/shims/node"
+    dest: "/usr/bin/node"
+    state: link
+    force: true
+  become: true
+
+- name: Node.js | Create Symlinks for npm to /usr/bin
+  ansible.builtin.file:
+    src: "{{ lookup('env', 'HOME') }}/.asdf/installs/nodejs/{{ lookup('env', 'HOME') }}/.asdf/shims/npm"
+    dest: "/usr/bin/npm"
+    state: link
+    force: true
+  become: true
+
+- name: Node.js | Install Global Packages
+  ansible.builtin.shell:
+    cmd: "npm install -g @openclaw/node"
+    register: npm_install
+  until: npm_install.rc == 0
+  retries: 3
+  delay: 5
+
+- name: Node.js | Verify OpenClaw Node Installation
+  ansible.builtin.shell:
+    cmd: "openclaw-node --version"
+    register: openclaw_node_version
+    failed_when: false
+    changed_when: false
+
+- name: Node.js | Display OpenClaw Node Version
+  ansible.builtin.debug:
+    msg: "OpenClaw Node Version: {{ openclaw_node_version.stdout | default('N/A') }}"

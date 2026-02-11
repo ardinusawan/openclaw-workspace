@@ -1,0 +1,59 @@
+---
+# OpenClaw Migration Role - Backup Existing Configurations
+
+- name: Backup | Create backup directory
+  file:
+    path: "{{ backup_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Backup | Ensure .ansible directory exists
+  file:
+    path: "{{ backup_dir }}/.ansible"
+    state: directory
+    mode: '0755'
+
+- name: Backup | Backup OpenClaw config
+  stat:
+    path: "{{ workspace_dir }}/openclaw.json"
+  register: openclaw_config
+
+- name: Backup | Copy OpenClaw config to backup
+  copy:
+    src: "{{ workspace_dir }}/openclaw.json"
+    dest: "{{ backup_dir }}/openclaw.json.backup"
+    remote_src: yes
+  when: openclaw_config.stat.exists
+  become: false
+
+- name: Backup | Backup existing cron job
+  shell: crontab -l | grep "backup.py" > {{ backup_dir }}/crontab.backup 2>/dev/null || true
+  register: cron_backup
+  changed_when: cron_backup.rc != 0
+  ignore_errors: true
+
+- name: Backup | Create backup manifest
+  copy:
+    content: |
+      OpenClaw Migration Backup
+      Date: {{ ansible_date }}
+      Workspace: {{ workspace_dir }}
+      Backup: {{ backup_dir }}
+
+      Files Backed Up:
+      - OpenClaw config: {{ 'YES' if openclaw_config.stat.exists else 'NO' }}
+      - Cron job: {{ 'YES' if cron_backup.rc == 0 else 'NO' }}
+
+      Next Steps:
+      1. Review backup
+      2. Run migration: ansible-playbook playbook.yml -e migrate=true
+      3. Verify migration: crontab -l | grep ansible
+    dest: "{{ backup_dir }}/MANIFEST.txt"
+    mode: '0644'
+
+- name: Backup | Display backup location
+  debug:
+    msg:
+      - "Backup created: {{ backup_dir }}"
+      - "Manifest: {{ backup_dir }}/MANIFEST.txt"
+      - "Review backup before proceeding"
