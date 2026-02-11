@@ -1,0 +1,44 @@
+---
+# OpenClaw Migration to Ansible - FINAL PATH FIX
+# Idempotent, safe, reversible
+
+- name: OpenClaw Migration to Ansible
+  hosts: localhost
+  gather_facts: true
+  become: false
+  vars:
+    workspace_dir: "/home/ardinusawan/.openclaw/workspace"
+    openclaw_dir: "/home/ardinusawan/.openclaw"
+    openclaw_config_path: "/home/ardinusawan/.openclaw/openclaw.json"  # FIX: Use root OpenClaw directory
+    backup_dir: "/tmp/openclaw_migration_backup"
+    migrate: false
+
+  pre_tasks:
+    - name: Display Banner
+      debug:
+        msg: "OpenClaw Migration to Ansible - PATH FIX"
+
+    - name: Check OpenClaw Config Location
+      stat:
+        path: "{{ openclaw_config_path }}"
+      register: config_stat
+
+    - name: Display Config Status
+      debug:
+        msg: "OpenClaw Config: {{ 'EXISTS' if config_stat.stat.exists else 'NOT FOUND' }} at {{ openclaw_config_path }}"
+
+  roles:
+    - role: openclaw.backup
+      when: migrate
+
+    - role: openclaw.migrate
+      when: migrate
+
+    - role: openclaw.verify
+      when: migrate
+
+  tasks:
+    - name: Complete
+      debug:
+        msg: "Migration complete!"
+      when: migrate
