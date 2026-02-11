@@ -1,5 +1,5 @@
 ---
-# OpenClaw Migration Playbook
+# OpenClaw Migration to Ansible
 # Idempotent, safe, reversible migration from manual scripts
 
 - name: OpenClaw Migration to Ansible
@@ -9,7 +9,6 @@
   vars_files:
     - vars/secret.yml  # API keys, tokens (gitignored)
     - vars/main.yml   # Main configuration
-    - vars/config.yml  # User-specific settings
   vars:
     workspace_dir: "{{ lookup('env', 'HOME') }}/.openclaw/workspace"
     backup_dir: "/tmp/openclaw_migration_{{ ansible_date_time.epoch() }}"
@@ -24,6 +23,7 @@
       command: ansible --version
       register: ansible_version
       failed_when: false
+      changed_when: false
 
     - name: Migration | Display Ansible Version
       debug:
@@ -39,30 +39,7 @@
         state: directory
         mode: '0755'
 
-    - name: Migration | Backup OpenClaw Config
-      copy:
-        src: "{{ workspace_dir }}/openclaw.json"
-        dest: "{{ backup_dir }}/openclaw.json.backup"
-        remote_src: yes
-      when: stat_result.stat.exists
-      register: openclaw_backup
-
-    - name: Migration | Backup Cron Configuration
-      shell: crontab -l | grep "backup.py" > {{ backup_dir }}/crontab.backup 2>/dev/null || true
-      register: cron_backup
-      ignore_errors: true
-
-    - name: Migration | Display Backup Status
-      debug:
-        msg:
-          - "Backup created: {{ backup_dir }}"
-          - "OpenClaw config: {{ 'BACKED UP' if openclaw_backup.changed else 'ALREADY BACKED' }}"
-          - "Cron job: {{ 'BACKED UP' if cron_backup is skipped else 'SKIPPED (no cron job)' }}"
-
   roles:
-    - role: openclaw.current_state
-      when: migrate
-
     - role: openclaw.backup
       when: migrate
 
@@ -73,22 +50,12 @@
       when: migrate
 
   tasks:
-    - name: Migration | Complete
-      block:
-        - name: Migration | Verify Cron Job
-          shell: crontab -l | grep "ansible"
-          register: new_cron
-          changed_when: false
-          ignore_errors: true
-
-        - name: Migration | Display Summary
-          debug:
-            msg:
-              - "Migration Status: COMPLETE"
-              - "Current Cron Jobs (Ansible): {{ new_cron.stdout_lines | default(['No cron jobs found']) }}"
-      when: migrate
-
     - name: Migration | Display Dry Run Notice
       debug:
-        msg: "Dry Run Mode (migrate: false) - No changes made. To perform migration, run: ansible-playbook playbook.yml -e migrate=true"
+        msg: "Dry Run Mode (migrate: false) - No changes made. To perform migration, set: ansible-playbook playbook-migrate.yml -e migrate=true"
       when: not migrate
+
+    - name: Migration | Display Complete Notice
+      debug:
+        msg: "Migration Complete! Review logs and verify cron jobs"
+      when: migrate

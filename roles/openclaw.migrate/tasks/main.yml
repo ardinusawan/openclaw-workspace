@@ -8,65 +8,34 @@
   register: old_cron
   changed_when: false
   ignore_errors: true
-  become: false
 
-- name: Migrate | Display old cron jobs (for reference)
+- name: Migrate | Display old cron jobs
   debug:
     msg: "Old cron jobs (now removed): {{ old_cron.stdout_lines | default(['No cron jobs found']) }}"
   when: old_cron.stdout_lines is defined and old_cron.stdout_lines | length > 0
 
 - name: Migrate | Remove old backup script
-  file:
+  ansible.builtin.file:
     path: "{{ workspace_dir }}/tools/backup.py"
     state: absent
   when: stat_result.stat.exists
 
-- name: Migrate | Remove old cron job
-  ansible.builtin.cron:
-    name: "{{ backup.schedule_cadangan }}"
-    user: "{{ lookup('env', 'USER') | default('Papa') }}"
-    state: absent
-    backup: yes
-  when: "'0 10 30 * * cd {{ workspace_dir }} && python3 {{ backup.script_path }}" | crontab_result.stdout | search(') != -1'
-
 - name: Migrate | Configure OpenClaw config for automation
-  copy:
-    content: |
-      {
-        "channels": {
-          "telegram": {
-            "braveApiKey": "{{ lookup('env', 'BRAVE_API_KEY') | default('') }}"
-          }
-        },
-        "automation": {
-          "managed_by": "ansible"
-        }
-      }
+  ansible.builtin.copy:
+    content: "automation:\n  managed_by: ansible\n"
     dest: "{{ workspace_dir }}/openclaw.json"
     mode: '0600'
-  when: lookup('env', 'BRAVE_API_KEY') | default('') | length > 0
 
-- name: Migrate | Set up new backup script (Ansible-managed)
-  template:
-    src: backup_ansible.j2
+- name: Migrate | Set up new backup script
+  ansible.builtin.copy:
+    src: "{{ workspace_dir }}/templates/backup_ansible.j2"
     dest: "{{ workspace_dir }}/tools/backup.py"
     mode: '0755'
 
-- name: Migrate | Configure Ansible cron job
+- name: Migrate | Configure Ansible cron job for backup
   ansible.builtin.cron:
-    name: "{{ backup.schedule }}"
+    name: "{{ lookup('env', 'USER') | default('Papa') }} - OpenClaw Ansible Backup"
     user: "{{ lookup('env', 'USER') | default('Papa') }}"
     job: "cd {{ workspace_dir }} && python3 {{ backup.script_path }}"
     state: present
     backup: yes
-
-- name: Migrate | Display migration summary
-  debug:
-    msg: |
-      Migration Status: COMPLETE
-      
-      Changes Made:
-      - Backup Script: Updated (Ansible-managed)
-      - Cron Job: Updated (Ansible-managed)
-      - Old Scripts: Backed up to {{ backup_dir }}
-      - OpenClaw Config: Updated for automation
