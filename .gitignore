@@ -1,0 +1,20 @@
+# Private submodule (managed separately)
+private-data/
+
+# But keep other gitignore rules
+*.log
+*.tmp
+*.bak
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
