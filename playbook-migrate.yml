@@ -1,6 +1,6 @@
 ---
-# OpenClaw Migration to Ansible - SIMPLE VERSION
-# Tanpa filter Jinja2, idempotent, safe
+# OpenClaw Migration to Ansible - FINAL VERSION
+# Tanpa Jinja2 filters, hanya shell commands sederhana
 
 - name: OpenClaw Migration to Ansible
   hosts: localhost
@@ -8,6 +8,7 @@
   become: false
   vars:
     workspace_dir: "/home/ardinusawan/.openclaw/workspace"
+    backup_dir: "/tmp/openclaw_migration"  # Fix: TANPA Jinja2 filters
     migrate: false  # Set to true to actually perform migration
 
   pre_tasks:
@@ -21,17 +22,32 @@
       failed_when: false
       changed_when: false
 
-    - name: Migration | Create backup directory using mktemp
-      shell: mktemp -d /tmp/openclaw_backup_XXXX
+    - name: Migration | Display Ansible Version
+      debug:
+        msg: "Ansible Version: {{ ansible_version.stdout | default('Not installed') }}"
+
+    - name: Migration | Create Backup Directory
+      shell: mktemp -d /tmp/openclaw_migration_backup_XXXX
       register: backup_dir
       changed_when: false
 
-    - name: Migration | Backup OpenClaw config
+    - name: Migration | Backup OpenClaw Config
       copy:
         src: "{{ workspace_dir }}/openclaw.json"
         dest: "{{ backup_dir.stdout }}/openclaw.json.backup"
         remote_src: yes
+      when: stat_result.stat.exists
+      register: openclaw_backup
+
+    - name: Migration | Backup Cron Configuration
+      shell: crontab -l > {{ backup_dir.stdout }}/crontab.backup 2>/dev/null || true
+      register: cron_backup
+      changed_when: false
       ignore_errors: true
+
+    - name: Migration | Display Backup Status
+      debug:
+        msg: "Backup created: {{ backup_dir.stdout }}, OpenClaw config: {{ 'BACKED UP' if openclaw_backup.changed else 'ALREADY BACKED' }}"
 
   roles:
     - role: openclaw.backup
@@ -44,18 +60,12 @@
       when: migrate
 
   tasks:
-    - name: Migration | Complete
-      block:
-        - name: Migration | Display backup directory
-          debug:
-            msg: "Backup location: {{ backup_dir.stdout }}"
-
-        - name: Migration | Display summary
-          debug:
-            msg: "Migration Complete! - System operational with Ansible automation"
-      when: migrate
-
     - name: Migration | Display Dry Run Notice
       debug:
         msg: "Dry Run Mode (migrate: false) - No changes made. To perform migration, run: ansible-playbook playbook-migrate.yml -e migrate=true"
       when: not migrate
+
+    - name: Migration | Display Complete Notice
+      debug:
+        msg: "Migration Complete! Review logs and verify cron jobs. Backup location: {{ backup_dir.stdout }}"
+      when: migrate
