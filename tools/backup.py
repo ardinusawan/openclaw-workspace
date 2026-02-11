@@ -20,7 +20,7 @@ def run_command(cmd, cwd=None):
             cwd=cwd,
             capture_output=True,
             text=True,
-            timeout=300  # 5 menit timeout
+            timeout=300 # 5 menit timeout
         )
         return result.returncode == 0, result.stdout.strip(), result.stderr.strip()
     except subprocess.TimeoutExpired:
@@ -56,7 +56,8 @@ def backup_private_repo(workspace_dir):
         print(f"   ❌ Error committing: {stderr}")
         return False
     
-    print(f"   ✅ Commit: {stdout.split(\"\\n\")[0] if \"\\n\" in stdout else stdout}")
+    commit_msg = stdout.split('\n')[0] if '\n' in stdout else stdout
+    print(f"   ✅ Commit: {commit_msg}")
     
     # Push
     success, stdout, stderr = run_command(
@@ -68,7 +69,8 @@ def backup_private_repo(workspace_dir):
         print(f"   ❌ Error pushing: {stderr}")
         return False
     
-    print(f"   ✅ Push: {stdout.split(\"\\n\")[0] if \"\\n\" in stdout else stdout}")
+    push_msg = stdout.split('\n')[0] if '\n' in stdout else stdout
+    print(f"   ✅ Push: {push_msg}")
     
     return True
 
@@ -98,7 +100,8 @@ def backup_public_repo(workspace_dir):
         print(f"   ❌ Error committing: {stderr}")
         return False
     
-    print(f"   ✅ Commit: {stdout.split(\"\\n\")[0] if \"\\n\" in stdout else stdout}")
+    commit_msg = stdout.split('\n')[0] if '\n' in stdout else stdout
+    print(f"   ✅ Commit: {commit_msg}")
     
     # Push
     success, stdout, stderr = run_command(
@@ -110,7 +113,8 @@ def backup_public_repo(workspace_dir):
         print(f"   ❌ Error pushing: {stderr}")
         return False
     
-    print(f"   ✅ Push: {stdout.split(\"\\n\")[0] if \"\\n\" in stdout else stdout}")
+    push_msg = stdout.split('\n')[0] if '\n' in stdout else stdout
+    print(f"   ✅ Push: {push_msg}")
     
     return True
 
@@ -226,17 +230,20 @@ def main():
     # Backup private repo
     private_success = True
     if has_private:
-        print("\n📁 Backup Private Repository...")
+        print()
+        print("📁 Backup Private Repository...")
         private_success = backup_private_repo(workspace_dir)
     
     # Backup public repo
     public_success = True
     if has_public:
-        print("\n📁 Backup Public Repository...")
+        print()
+        print("📁 Backup Public Repository...")
         public_success = backup_public_repo(workspace_dir)
     
     # Summary
-    print("\n" + "=" * 60)
+    print()
+    print("+" * 60)
     print("📊 Backup Summary:")
     print("=" * 60)
     
@@ -245,7 +252,7 @@ def main():
         print("✅ Public Repository: Berhasil dipush")
         send_brave_api_notification(workspace_dir)
     elif private_success:
-        print("✅ Private Repository: Berhasil")
+        print("✅ Private Repository: Berhasil dipush")
         print("⚠️  Public Repository: Tidak ada perubahan")
     elif public_success:
         print("⚠️  Private Repository: Tidak ada perubahan")
@@ -253,7 +260,8 @@ def main():
     else:
         print("❌ Backup gagal")
     
-    print("\n📅 Next backup akan berjalan dalam 24 jam")
+    print()
+    print("📅 Next backup akan berjalan dalam 24 jam")
     print("=" * 60)
 
 if __name__ == "__main__":
