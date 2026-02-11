@@ -10,9 +10,19 @@ This guide covers all technical setup needed to overcome OpenClaw limitations on
 
 ```bash
 # Core installations (run in order)
-asdf install python latest  # Python
-asdf install nodejs lts   # Node.js LTS
-asdf global python latest nodejs lts
+# Step 1: Install asdf (if needed)
+# Step 2: Add plugins
+asdf plugin add python
+asdf plugin add nodejs
+asdf plugin add rust
+
+# Step 3: Install versions
+asdf install python latest
+asdf install nodejs lts
+asdf install rust latest
+
+# Step 4: Set as global
+asdf global python latest nodejs lts rust latest
 
 # Python packages
 pip install yfinance pandas numpy pyttsx3 duckduckgo-search playwright
@@ -47,18 +57,46 @@ openclaw-node pair
 
 ## Core Installations
 
-### Install Python with asdf
+### Install asdf (if not already installed)
 
 ```bash
-# Install asdf if not already installed
+# Clone asdf repository
 git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.0
+
+# Add to bashrc
 echo '. "$HOME/.asdf/asdf.sh"' >> ~/.bashrc
 echo '. "$HOME/.asdf/completions/asdf.bash"' >> ~/.bashrc
+
+# Reload shell
 source ~/.bashrc
 
-# Install Python plugin
+# Verify asdf
+asdf --version
+```
+
+---
+
+### Add Plugins (do this first!)
+
+```bash
+# Add Python plugin
 asdf plugin add python
 
+# Add Node.js plugin
+asdf plugin add nodejs
+
+# Add Rust plugin
+asdf plugin add rust
+
+# Verify plugins
+asdf plugin list
+```
+
+---
+
+### Install Python
+
+```bash
 # Install latest Python
 asdf install python latest
 
@@ -72,12 +110,9 @@ which python
 
 ---
 
-### Install Node.js LTS with asdf
+### Install Node.js
 
 ```bash
-# Install Node.js plugin
-asdf plugin add nodejs
-
 # Install LTS version
 asdf install nodejs lts
 
@@ -95,9 +130,34 @@ sudo ln -sf $(which npm) /usr/bin/npm
 
 ---
 
+### Install Rust
+
+```bash
+# Install latest Rust
+asdf install rust latest
+
+# Set as global
+asdf global rust latest
+
+# Verify
+rustc --version
+cargo --version
+```
+
+---
+
 ### Install pip (if missing)
 
 ```bash
+# Download get-pip.py
+curl https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+
+# Install pip
+python3 /tmp/get-pip.py --user --break-system-packages
+
+# Verify
+python3 -m pip --version
+```
 # Download get-pip.py
 curl https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
 
