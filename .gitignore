@@ -1,10 +1,23 @@
-# Private submodule (managed separately)
-private-data/
+# Private submodule is managed as submodule, not ignored
+# Note: Submodule references commit hash, not branch
 
-# But keep other gitignore rules
+# Keep other gitignore rules
 *.log
 *.tmp
 *.bak
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
 
 # Python
 __pycache__/
