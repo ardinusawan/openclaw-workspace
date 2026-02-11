@@ -6,6 +6,7 @@
 # 1. Install asdf
 git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.0
 echo '. "$HOME/.asdf/asdf.sh"' >> ~/.bashrc
+echo '. "$HOME/.asdf/completions/asdf.bash"' >> ~/.bashrc
 source ~/.bashrc
 
 # 2. Add plugins
@@ -32,6 +33,7 @@ openclaw configure --section web
 
 # 8. Node pairing
 npm install -g @openclaw/node
+openclaw-node pair
 ```
 
 ---
@@ -57,7 +59,7 @@ openclaw configure --section web
 **Limits:** 2,000 requests/month (free)
 **Revoke:** https://github.com/settings/tokens if leaked
 
-**Alternative:** DuckDuckGo (no API key needed)
+**Alternative Options:** See [Alternative Search](#alternative-search) section below for DuckDuckGo, Chrome headless, and more.
 
 ---
 
@@ -67,6 +69,70 @@ openclaw configure --section web
 pip install yfinance
 python3 -c "import yfinance as yf; print(yf.Ticker('^JKSE').history('5d'))"
 ```
+
+---
+
+## Alternative Search
+
+### Free Search Options (Besides Brave API)
+
+**Options:**
+
+1. **DuckDuckGo** (Recommended Backup)
+   - Unlimited requests
+   - No API key needed
+   - See `tools/ddg_search.py`
+   - Usage: `python3 tools/ddg_search.py "query"`
+
+2. **SerpAPI** (Free: 100/hour)
+   - Multiple search engines (Google, Bing, etc.)
+   - Get free API key from https://serpapi.com/
+   - See detailed guide: `ALTERNATIVE_SEARCH.md`
+
+3. **Bing Web Search API** (Microsoft)
+   - Free: 1,000 requests/month
+   - Get API key from Azure Portal
+
+4. **Wolfram Alpha** (Math/Science)
+   - Free: 2,000 requests/month
+   - Get App ID from https://developer.wolframalpha.com/
+
+5. **Google Custom Search API**
+   - Free: 100 requests/hour
+   - Requires Google Cloud account
+
+6. **Chrome Headless** (Scraping - CAUTION!)
+   - Unlimited but:
+     - ⚠️ Violates Terms of Service
+     - ⚠️ IP can be blocked
+     - ⚠️ Unstable, HTML changes often
+   - Only use for personal/educational purposes
+   - See detailed guide: `ALTERNATIVE_SEARCH.md`
+
+### Comparison
+
+| Service | Free Tier | Best For |
+|---------|-----------|----------|
+| Brave | 2,000/month | General search |
+| DuckDuckGo | Unlimited | Privacy, general |
+| SerpAPI | 100/hour | Multiple engines |
+| Bing | 1,000/month | General |
+| Wolfram Alpha | 2,000/month | Math, science, facts |
+| Chrome | Unlimited (risky) | Scraping |
+
+### Recommendation
+
+**For Personal Use:**
+1. **Brave API** (2,000/month) - Stable & legal
+2. **DuckDuckGo** (Unlimited) - No API key needed
+
+**Avoid Production Scraping:**
+- Chrome headless violates ToS
+- Use official APIs for production systems
+- Scaping only for educational/personal use
+
+**Detailed Guide:**
+See `ALTERNATIVE_SEARCH.md` for complete setup instructions for each alternative including helper scripts, API key setup, and security warnings.
 
 ---
 
@@ -114,4 +180,4 @@ git clone https://<TOKEN>@github.com/...
 ---
 
 **Platform:** Orange Pi 5 (ARM64) | **OS:** Ubuntu-based
-**Last Updated:** 2026-02-11 | **Version:** 2.0 (Ringkas)
+**Last Updated:** 2026-02-11 | **Version:** 2.1
