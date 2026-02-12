@@ -44,6 +44,132 @@ openclaw-node pair
 
 ---
 
+## Workspace Structure
+
+```
+.openclaw/workspace/
+├── docs/              # Documentation
+│   ├── AGENTS.md
+│   ├── ALTERNATIVE_SEARCH.md
+│   ├── BOOTSTRAP.md
+│   ├── HEARTBEAT.md
+│   ├── IDENTITY.md
+│   ├── RESTORE_GUIDE.md
+│   └── TOOLS.md
+│
+├── scripts/            # All Python & Shell scripts
+│   ├── trading/      # Trading scripts
+│   │   ├── download_stock_data.py
+│   │   ├── SWING_TRADING_RESEARCH.md
+│   │   ├── analyze_bbri.py
+│   │   ├── bmri_analysis.py
+│   │   ├── stock_analysis.py
+│   │   ├── stock_report.py
+│   │   └── comprehensive_analysis.py
+│   └── tools/        # Helper tools
+│       ├── backup.py
+│       ├── fetch.py
+│       ├── ocr.py
+│       └── tts.py
+│
+├── playbooks/         # Ansible playbooks
+│   ├── playbook-migrate-final.yml
+│   ├── playbook-migrate-simple.yml
+│   ├── playbook-migrate.yml
+│   ├── playbook.yml
+│   └── playbook-path-fix.yml
+│
+├── configs/           # Configuration files
+│   └── main.yml
+│
+├── roles/             # Ansible roles
+│   ├── openclaw.backup/
+│   ├── openclaw.migrate/
+│   ├── openclaw.verify/
+│   ├── openclaw.asdf/
+│   ├── openclaw.git/
+│   ├── openclaw.cron/
+│   ├── openclaw.brave_api/
+│   ├── openclaw.nodejs/
+│   ├── openclaw.python/
+│   ├── openclaw.ssh/
+│   ├── openclaw.gateway/
+│   ├── openclaw.system/
+│   └── openclaw.current_state/
+│
+├── memory/            # Memory files (private-data submodule)
+│   └── 2026-02-11-*.md
+│
+├── private-data/      # Private submodule (gitignored)
+│   ├── MEMORY.md
+│   ├── config.json
+│   ├── media/
+│   └── memory/
+│
+├── .README_PUBLIC.md
+├── BOOTSTRAP.md
+├── HEARTBEAT.md
+├── IDENTITY.md
+├── README.md          # Main documentation (THIS FILE)
+├── SOUL.md
+├── TOOLS.md
+├── HYBRID_GIT_SETUP.md
+├── USER.md
+└── STOCK_REPORT.md
+```
+
+---
+
+## Get BRAVE_API_KEY
+
+**Steps:**
+
+1. Go to: https://brave.com/search/api/ or https://api.brave.com/app/keys
+2. Sign up/login (use GitHub/Google for fastest)
+3. Click "Create API Key"
+4. Name: `OpenClaw-Papa`
+5. Type: `Search` or `Browser Search API`
+6. Click "Create"
+7. **COPY API KEY** (format: `BSAxxxxx` or `BSxxxxx`) - only shown once!
+
+**Setup OpenClaw:**
+```bash
+openclaw configure --section web
+# Paste API key when prompted
+```
+
+**Limits:** 2,000 requests/month (free)
+**Revoke:** https://github.com/settings/tokens if leaked
+
+**Alternative:** DuckDuckGo (no API key needed)
+
+---
+
+## Stock Data
+
+### yfinance (Yahoo Finance - Recommended)
+
+```bash
+pip install yfinance
+python3 -c "import yfinance as yf; print(yf.Ticker('^JKSE').history('5d'))"
+```
+
+### Custom Analysis Scripts
+
+**BMRI Analysis:**
+```bash
+cd scripts/trading
+python3 bmri_analysis.py
+```
+
+**Stock Data Downloader:**
+```bash
+cd scripts/trading
+python3 download_stock_data.py
+```
+
+---
+
 ## Git Repository Setup
 
 ### Structure
@@ -126,28 +252,27 @@ crontab -e
 
 # 2. Tambah baris berikut (paste di bagian bawah):
 
-# Backup setiap jam 10 pagi setiap hari
-0 10 * * * cd /home/ardinusawan/.openclaw/workspace && python3 tools/backup.py >> /home/ardinusawan/cron_backup.log 2>&1
+# Backup setiap hari jam 10:00 pagi (UTC+7 berarti jam 10:00)
+0 10 * * * cd /home/ardinusawan/.openclaw/workspace && python3 scripts/tools/backup.py >> /home/ardinusawan/cron_backup.log 2>&1
 
-# Backup alternatif setiap jam 2 pagi setiap hari
-0 2 * * * cd /home/ardinusawan/.openclaw/workspace && python3 tools/backup.py >> /home/ardinusawan/cron_backup.log 2>&1
+# Backup alternatif setiap hari jam 10:30 pagi (UTC+7 berarti jam 10:30)
+30 10 * * * cd /home/ardinusawan/.openclaw/workspace && python3 scripts/tools/backup.py >> /home/ardinusawan/cron_backup.log 2>&1
 ```
 
 Cron time format:
 ```
 * * * * command
-│ │ │ │ │
-│ │ │ │ └─── Day of week (0-6, 0=Sunday)
-│ │ │ └────── Month (1-12)
-│ │ └─────── Day of month (1-31)
-│ └────────── Hour (0-23)
+│ │ │ │ │ └─── Day of week (0-6, 0=Sunday)
+│ │ │ │ └────── Month (1-12)
+│ │ └────────── Hour (0-23)
+└─────────────── Minute (0-59)
 ```
 
 ### Verifikasi Cron Job
 
 ```bash
 # List cron jobs
-crontab -l
+crontab -l | grep backup
 
 # Cek log cron
 tail -f /home/ardinusawan/cron_backup.log
@@ -169,7 +294,7 @@ Brave Search API telah diintegrasikan ke sistem backup Anda.
 1. Buka: https://brave.com/search/api/ atau https://api.brave.com/app/keys
 2. Sign up/login (pakai GitHub/Google untuk tercepat!)
 3. Click "Create API Key"
-4. Name: `OpenClaw-Papa` atau nama lain
+4. Name: `OpenClaw-Papa`
 5. Type: `Search` atau `Browser Search API`
 6. Click "Create"
 7. **COPY API KEY** (format: `BSAxxxxx` atau `BSxxxxx`) - hanya muncul sekali!
@@ -184,7 +309,7 @@ openclaw configure --section web
 ### Limits
 
 - **Gratis:** 2,000 requests/bulan
-- **Untuk personal use:** Biasanya cukup
+- **Untuk penggunaan personal:** Biasanya cukup
 
 ### Security Notes
 
@@ -216,28 +341,7 @@ pip install duckduckgo-search
 
 Usage:
 ```bash
-python3 ~/.openclaw/workspace/tools/ddg_search.py "IHSG hari ini"
-```
-
----
-
-## Stock Market Data
-
-### yfinance (Yahoo Finance - Recommended)
-
-```bash
-# Install package
-pip install yfinance
-```
-
-Usage:
-```bash
-# IHSG
-python3 ~/.openclaw/workspace/tools/ihsg_data.py "^JKSE"
-
-# Stock
-python3 ~/.openclaw/workspace/tools/ihsg_data.py "BBRI.JK"
-python3 ~/.openclaw/workspace/tools/ihsg_data.py "BMRI.JK"
+python3 scripts/tools/backup.py  # Backup script uses duckduckgo-search for fallback
 ```
 
 ---
@@ -257,31 +361,6 @@ espeak-ng "Halo ini tes" -w output.wav
 
 ---
 
-## pyttsx3 (Python-based)
-
-```bash
-pip install pyttsx3
-```
-
-Create helper script `~/.openclaw/workspace/tools/tts.py`:
-```python
-import pyttsx3
-import sys
-
-engine = pyttsx3.init()
-text = " ".join(sys.argv[1:])
-engine.save_to_file(text, "output.wav")
-engine.runAndWait()
-print(f"Saved: {text} -> output.wav")
-```
-
-Usage:
-```bash
-python3 ~/.openclaw/workspace/tools/tts.py "Halo ini tes"
-```
-
----
-
 ## OCR (Text Recognition)
 
 ### Tesseract Setup
@@ -297,7 +376,7 @@ sudo apt install tesseract-ocr-indo
 tesseract --version
 ```
 
-Create helper script `~/.openclaw/workspace/tools/ocr.py`:
+Create helper script `scripts/tools/ocr.py`:
 ```python
 import sys
 import pytesseract
@@ -319,7 +398,7 @@ pip install pytesseract Pillow
 
 Usage:
 ```bash
-python3 ~/.openclaw/workspace/tools/ocr.py "/path/to/image.jpg"
+python3 scripts/tools/ocr.py "/path/to/image.jpg"
 ```
 
 ---
@@ -358,7 +437,7 @@ pip install playwright
 playwright install
 ```
 
-Create helper script `~/.openclaw/workspace/tools/fetch.py`:
+Create helper script `scripts/tools/fetch.py`:
 ```python
 from playwright.sync_api import sync_playwright
 import sys
@@ -368,9 +447,11 @@ url = sys.argv[1] if len(sys.argv) > 1 else "https://example.com"
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
+
+    # Navigate ke Google
     page.goto(url, wait_until="networkidle", timeout=30000)
     
-    # Extract text
+    # Ekstrak text
     text = page.inner_text("body")
     
     # Extract structured data if needed
@@ -386,7 +467,7 @@ with sync_playwright() as p:
 
 Usage:
 ```bash
-python3 ~/.openclaw/workspace/tools/fetch.py "https://finance.yahoo.com/quote/%5EJKSE"
+python3 scripts/tools/fetch.py "https://finance.yahoo.com/quote/%5EJKSE"
 ```
 
 ---
@@ -397,7 +478,7 @@ python3 ~/.openclaw/workspace/tools/fetch.py "https://finance.yahoo.com/quote/%5
 
 ```bash
 # Use --break-system-packages for system-wide pip install
-python3 /tmp/get-pip.py --user --break-system-packages
+pip install --break-system-packages
 
 # Or use virtual environment
 python3 -m venv ~/.venv
@@ -460,17 +541,15 @@ ssh-keygen -t ed25519 -C "ardinusawan@ardi-desktop"
 
 Create directory:
 ```bash
-mkdir -p ~/.openclaw/workspace/tools
-cd ~/.openclaw/workspace/tools
+mkdir -p scripts/tools
+cd scripts/tools
 ```
 
 Recommended scripts:
 - `backup.py` - Auto daily backup script (NEW!)
-- `ddg_search.py` - DuckDuckGo search
-- `ihsg_data.py` - IHSG & stock data
 - `fetch.py` - Web fetch with Playwright
-- `tts.py` - Text-to-speech
 - `ocr.py` - Text recognition
+- `tts.py` - Text-to-speech
 
 ---
 
@@ -478,16 +557,21 @@ Recommended scripts:
 
 ```bash
 # Core setup (run in order)
+# Step 1: Add plugins
 asdf plugin-add python
 asdf plugin-add nodejs
 asdf plugin-add rust
+
+# Step 2: Install versions
 asdf install python latest
 asdf install nodejs lts
 asdf install rust latest
+
+# Step 3: Set as global
 asdf global python latest nodejs lts rust latest
 
 # Python packages
-pip install yfinance pandas numpy pyttsx3 duckduckgo-search playwright pytesseract Pillow
+pip install yfinance pandas numpy pyttsx3 duckduckgo-search playwright
 
 # System packages
 sudo apt install espeak-ng tesseract-ocr tesseract-ocr-indo libopusfile0 ffmpeg
@@ -497,62 +581,9 @@ openclaw configure --section web
 
 # Node pairing
 npm install -g @openclaw/node
-
-# Helper scripts directory
-mkdir -p ~/.openclaw/workspace/tools
-cd ~/.openclaw/workspace/tools
-
-# Restore workspace (with token)
-git clone https://github.com/ardinusawan/openclaw-workspace.git ~/.openclaw/workspace
-cd ~/.openclaw/workspace
-git clone https://<TOKEN>@github.com/ardinusawan/openclaw-private-data.git private-data
-
-# Daily backup (manual)
-cd ~/.openclaw/workspace
-python3 tools/backup.py
-
-# Setup cron job (auto backup daily at 10:00)
-crontab -e
-# Paste: 0 10 * * * cd /home/ardinusawan/.openclaw/workspace && python3 tools/backup.py >> /home/ardinusawan/cron_backup.log 2>&1
 ```
 
 ---
 
-## Quick Start
-
-```bash
-# 1. Core setup (run in order)
-asdf plugin-add python
-asdf plugin-add nodejs
-asdf plugin-add rust
-asdf install python latest nodejs lts rust latest
-asdf global python latest nodejs lts rust latest
-
-# 2. Install essential packages
-pip install yfinance duckduckgo-search playwright
-sudo apt install espeak-ng tesseract-ocr
-
-# 3. Configure web search (Brave API)
-openclaw configure --section web
-
-# 4. Create tools directory
-mkdir -p ~/.openclaw/workspace/tools
-cd ~/.openclaw/workspace/tools
-
-# 5. Setup cron job (auto backup daily)
-crontab -e
-# Paste: 0 10 * * * cd /home/ardinusawan/.openclaw/workspace && python3 tools/backup.py >> /home/ardinusawan/cron_backup.log 2>&1
-```
-
----
-
-## Support
-
-If you need help with setup, ask Nara (OpenClaw assistant) and specify which section you need help with.
-
----
-
-**Last Updated:** 2026-02-11
-**Version:** 2.0 (Final - Setup Perfection)
-**Platform:** Orange Pi 5 (ARM64)
-**OS:** Ubuntu-based Linux
+**Platform:** Orange Pi 5 (ARM64) | **OS:** Ubuntu-based Linux
+**Last Updated:** 2026-02-12 | **Version:** 2.2 (Workspace Reorganized)
