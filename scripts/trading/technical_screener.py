@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Technical Stock Screener - Momentum Based Swing Trading
+Technical Stock Screener - Momentum Based Swing Trading (FIXED)
 Screens Indonesian stocks (IDX) for technical swing trading criteria
 
 Scoring Criteria:
@@ -16,9 +16,10 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import csv
 
 class TechnicalScreener:
-    """Technical stock screener for momentum-based swing trading"""
+    """Technical stock screener for momentum-based swing trading (FIXED VERSION)"""
 
     def __init__(self):
         self.stocks_data = {}
@@ -26,7 +27,7 @@ class TechnicalScreener:
     def calculate_rsi(self, prices, period=14):
         """Calculate RSI (Relative Strength Index)"""
         delta = prices.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+        gain = (delta.where(delta > 0, 0).rolling(window=period).mean())
         loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
 
         rs = 100 - (100 / (1 + gain / loss))
@@ -52,7 +53,7 @@ class TechnicalScreener:
         return true_range
 
     def calculate_bollinger(self, prices, period=20, std_dev=2):
-        """Calculate Bollinger Bands"""
+        """Calculate Bollinger Bands (Volatility)"""
         sma = prices.rolling(window=period).mean()
         std = prices.rolling(window=period).std()
 
@@ -60,10 +61,7 @@ class TechnicalScreener:
         lower_band = sma - (std * std_dev)
         middle_band = sma
 
-        # Bandwidth: (upper - lower) / middle
-        bandwidth = (upper_band - lower_band) / middle_band
-
-        return upper_band, middle_band, lower_band, bandwidth
+        return upper_band, middle_band, lower_band
 
     def calculate_volume_ma(self, volume, period=20):
         """Calculate 20-day volume moving average"""
@@ -90,7 +88,7 @@ class TechnicalScreener:
         if rsi > rsi_prev:
             score += 10  # Rising RSI (bullish)
         elif rsi < rsi_prev:
-            score -= 5  # Falling RSI (bearish)
+            score += 0  # Falling RSI (bearish)
 
         # MACD Momentum (15 points)
         macd_hist = stock_data['MACD_Hist'].iloc[-1]
@@ -99,12 +97,6 @@ class TechnicalScreener:
             score += 15  # Bullish histogram
         elif macd_hist < 0:
             score += 0  # Bearish histogram
-
-        # MACD Crossover (additional 5 points)
-        if len(stock_data['MACD']) >= 2:
-            macd_prev = stock_data['MACD'].iloc[-2]
-            if macd_prev < 0 and stock_data['MACD'].iloc[-1] > 0:
-                score += 5  # Bullish crossover
 
         return score
 
@@ -133,10 +125,10 @@ class TechnicalScreener:
 
         if bandwidth < 0.05:  # Very tight bands (squeeze)
             score += 15
-        elif bandwidth < 0.10:
-            score += 10  # Moderately tight bands
-        elif bandwidth < 0.20:
-            score += 5  # Normal bands
+        elif bandwidth < 0.10:  # Moderately tight bands
+            score += 10
+        elif bandwidth < 0.20:  # Normal bands
+            score += 5
         else:
             score += 0  # Wide bands
 
@@ -154,20 +146,20 @@ class TechnicalScreener:
             score += 10  # High volume
         elif current_volume > volume_ma * 1.2:
             score += 7  # Above average volume
-        elif current_volume > volume_ma * 1.0:
+        elif current_volume > volume_ma:
             score += 5  # Normal volume
         else:
             score += 0  # Low volume
 
         # Volume spike (5 points)
-        prev_volume = stock_data['Volume'].iloc[-2] if len(stock_data['Volume']) >= 2 else stock_data['Volume'].iloc[-1]
+        prev_volume = stock_data['Volume'].iloc[-2] if len(stock_data['Volume']) >= 2 else current_volume
 
         if current_volume > prev_volume * 2.0:
             score += 5  # Volume spike (institutional interest)
 
         # Volume trend (increasing) (5 points)
         if len(stock_data['Volume']) >= 3:
-            vol_trend = stock_data['Volume'].iloc[-3:]  # Last 3 days
+            vol_trend = stock_data['Volume'].iloc[-3:]
             if vol_trend.is_monotonic_increasing():
                 score += 5  # Increasing volume
 
@@ -182,27 +174,27 @@ class TechnicalScreener:
         lower_band = stock_data['BB_Lower'].iloc[-1]
         middle_band = stock_data['BB_Mid'].iloc[-1]
 
-        # Price near upper band (breakout potential) - 5 points
+        # Price near upper band (breakout potential) (5 points)
         if close > middle_band * 0.98:
             score += 5
 
-        # Price near lower band (support) - 3 points
+        # Price near lower band (support) (3 points)
         if close < middle_band * 1.02:
             score += 3
 
-        # Price action: Higher highs, higher lows (trend) - 5 points
+        # Price action: Higher highs, higher lows (5 points)
         if len(stock_data['Close']) >= 5:
-            highs = stock_data['High'].iloc[-5:].max()
-            if stock_data['High'].iloc[-1] == highs:
-                score += 5  # Making higher highs
+            highs = stock_data['High'].iloc[-5:]
+            if stock_data['High'].iloc[-1] == highs.max():
+                score += 5
 
-        # Price action: Consolidation near middle band - 2 points
+        # Price action: Consolidation near middle band (2 points)
         if 0.98 < (close / middle_band) < 1.02:
             score += 2
 
         return score
 
-    def screen_stocks(self, tickers, start_date="2025-08-01", end_date="2026-02-12"):
+    def screen_stocks(self, tickers, start_date="2025-08-01", end_date=datetime.now()):
         """Screen stocks based on technical criteria"""
         print(f"\n🔍 Screening {len(tickers)} stocks for swing trading...")
         print(f"   Time range: {start_date} to {end_date}")
@@ -218,16 +210,11 @@ class TechnicalScreener:
                 hist = stock.history(start=start_date, end=end_date)
 
                 if hist.empty or len(hist) < 30:
-                    print(f"   ❌ Insufficient data (less than 30 days)")
+                    print(f"   ❌ Insufficient data (< 30 days)")
                     continue
 
                 # Reset index
                 hist.index = hist.index.tz_localize(None).tz_localize('Asia/Jakarta')
-
-                # Ensure required columns
-                if 'Volume' not in hist.columns:
-                    print(f"   ⚠️  No volume data")
-                    continue
 
                 # Calculate indicators
                 hist['RSI'] = self.calculate_rsi(hist['Close'], period=14)
@@ -249,7 +236,6 @@ class TechnicalScreener:
                 latest = hist.iloc[-1]
 
                 results[ticker] = {
-                    'ticker': ticker,
                     'total_score': total_score,
                     'momentum_score': momentum_score,
                     'volatility_score': volatility_score,
@@ -270,81 +256,80 @@ class TechnicalScreener:
                 print(f"      Volatility: {volatility_score:.0f}")
                 print(f"      Volume: {volume_score:.0f}")
                 print(f"      Price Action: {price_action_score:.0f}")
-                print(f"      RSI: {latest['RSI']:.2f}")
                 print(f"      Price: Rp {latest['Close']:,.0f}")
 
             except Exception as e:
                 print(f"   ❌ Error processing {ticker}: {str(e)}")
-                continue
 
-        # Sort by total score
-        sorted_results = sorted(results.items(), key=lambda x: x[1]['total_score'], reverse=True)
-
-        # Display top stocks
-        print(f"\n📈 TOP 10 STOCKS FOR SWING TRADING:")
-        print("=" * 60)
-
-        for i, (ticker, data) in enumerate(sorted_results[:10], 1):
-            print(f"\n{i}. {ticker}")
-            print(f"   Score: {data['total_score']:.0f}/100")
-            print(f"   Price: Rp {data['price']:,.0f}")
-            print(f"   Volume: {data['volume']:,.0f}")
-            print(f"   RSI: {data['rsi']:.2f}")
-            print(f"   MACD Hist: {data['macd_hist']:.4f}")
-            print(f"   ATR: {data['atr']:,.0f}")
-            print(f"   Bandwidth: {data['bandwidth']:.4f}")
-
-        print("\n" + "=" * 60)
-
-        return sorted_results
+        return results
 
     def display_analysis(self, sorted_results):
         """Display detailed analysis of top stocks"""
-        print("\n📊 DETAILED ANALYSIS OF TOP STOCKS")
+        print("\n📊 DETAILED ANALYSIS OF TOP 10 STOCKS")
 
-        for i, (ticker, data) in enumerate(sorted_results[:5], 1):
+        for i, (ticker, data) in enumerate(sorted_results[:10], 1):
             print(f"\n{i}. {ticker} - SCORE: {data['total_score']:.0f}/100")
 
             # Momentum Analysis
-            print(f"   📈 Momentum Score: {data['momentum_score']:.0f}/40")
-            if data['rsi'] > 70:
-                print(f"      RSI: {data['rsi']:.2f} (OVERBOUGHT - Bullish)")
-            elif data['rsi'] < 30:
-                print(f"      RSI: {data['rsi']:.2f} (OVERSOLD - Bearish)")
-            else:
-                print(f"      RSI: {data['rsi']:.2f} (NEUTRAL)")
+            print(f"   📈 Momentum: {data['momentum_score']:.0f}/40")
 
-            print(f"      MACD Histogram: {data['macd_hist']:.4f}")
+            rsi = data['rsi']
 
-            if data['macd_hist'] > 0:
-                print(f"      Status: BULLISH MOMENTUM")
-            elif data['macd_hist'] < 0:
-                print(f"      Status: BEARISH MOMENTUM")
+            if rsi > 70:
+                print(f"      RSI: {rsi:.2f} (OVERBOUGHT - Bullish)")
+            elif rsi < 30:
+                print(f"      RSI: {rsi:.2f} (OVERSOLD - Bearish)")
+            elif 30 < rsi < 50:
+                print(f"      RSI: {rsi:.2f} (WEAK - Slightly Bearish)")
+            elif 50 < rsi < 70:
+                print(f"      RSI: {rsi:.2f} (STRONG - Slightly Bullish)")
+
+            macd_hist = data['macd_hist']
+            print(f"      MACD: {macd_hist:.4f}")
+
+            if macd_hist > 0:
+                print(f"      Status: BULLISH HISTOGRAM")
+            elif macd_hist < 0:
+                print(f"      Status: BEARISH HISTOGRAM")
 
             # Volatility Analysis
-            print(f"   📉 Volatility Score: {data['volatility_score']:.0f}/25")
+            print(f"   📉 Volatility: {data['volatility_score']:.0f}/25")
 
-            if data['bandwidth'] < 0.05:
-                print(f"      Bollinger: TIGHT SQUEE (Breakout potential)")
-            elif data['bandwidth'] < 0.10:
-                print(f"      Bollinger: MODERATE SQUEZE")
+            atr = data['atr']
+            price = data['price']
+            atr_pct = (atr / price * 100)
+
+            print(f"      ATR: {atr:,.2f}")
+            print(f"      ATR%: {atr_pct:.2f}%")
+
+            bandwidth = data['bandwidth']
+
+            if bandwidth < 0.05:
+                print(f"      Bollinger: TIGHT SQUEEZE (Breakout Potential)")
+            elif bandwidth < 0.10:
+                print(f"      Bollinger: MODERATE SQUEEZE")
+            elif bandwidth < 0.20:
+                print(f"      Bollinger: NORMAL BANDS")
             else:
-                print(f"      Bollinger: WIDE BANDS (Range)")
-
-            print(f"      ATR (Volatility): {data['atr']:,.0f}")
+                print(f"      Bollinger: WIDE BANDS")
 
             # Volume Analysis
-            print(f"   📊 Volume Score: {data['volume_score']:.0f}/20")
+            print(f"   📊 Volume Profile: {data['volume_score']:.0f}/20")
 
-            if data['volume'] > data['volume_ma'] * 1.5:
-                print(f"      Volume: HIGH ({data['volume']:,.0f} vs MA {data['volume_ma']:,.0f})")
-            elif data['volume'] > data['volume_ma'] * 1.2:
-                print(f"      Volume: ABOVE AVERAGE ({data['volume']:,.0f} vs MA {data['volume_ma']:,.0f})")
+            current_volume = data['volume']
+            volume_ma = data['volume_ma']
+
+            if current_volume > volume_ma * 1.5:
+                print(f"      Volume: HIGH ({current_volume:,.0f} vs MA {volume_ma:,.0f})")
+            elif current_volume > volume_ma * 1.2:
+                print(f"      Volume: ABOVE AVERAGE ({current_volume:,.0f} vs MA {volume_ma:,.0f})")
+            elif current_volume > volume_ma:
+                print(f"      Volume: NORMAL ({current_volume:,.0f} vs MA {volume_ma:,.0f})")
             else:
-                print(f"      Volume: NORMAL ({data['volume']:,.0f} vs MA {data['volume_ma']:,.0f})")
+                print(f"      Volume: LOW ({current_volume:,.0f} vs MA {volume_ma:,.0f})")
 
-            # Price Action Analysis
-            print(f"   💰 Price Action Score: {data['price_action_score']:.0f}/15")
+            # Price Action
+            print(f"   💰 Price Action: {data['price_action_score']:.0f}/15")
 
             bb_upper = data['price'] * (1 + data['bandwidth'] / 2)
             bb_lower = data['price'] * (1 - data['bandwidth'] / 2)
@@ -353,27 +338,28 @@ class TechnicalScreener:
             print(f"      Bollinger Lower: Rp {bb_lower:,.0f}")
 
             if data['price'] > bb_upper * 0.98:
-                print(f"      Status: NEAR UPPER BAND (Breakout potential)")
+                print(f"      Status: NEAR UPPER BAND (Breakout Potential)")
             elif data['price'] < bb_lower * 1.02:
-                print(f"      Status: NEAR LOWER BAND (Support level)")
+                print(f"      Status: NEAR LOWER BAND (Support Level)")
             else:
                 print(f"      Status: MIDDLE RANGE (Consolidation)")
 
         print("\n" + "=" * 60)
 
 def main():
-    """Main function"""
+    """Main function to run screener"""
+
     print("=" * 60)
-    print("🔍 TECHNICAL STOCK SCREENER - MOMENTUM SWING TRADING")
+    print("🔍 TECHNICAL STOCK SCREENER - MOMENTUM SWING TRADING (FIXED)")
     print("=" * 60)
 
-    # Indonesian stocks to screen (mix of banking, mining, consumer, telecom, etc.)
+    # Indonesian stocks to screen (mix of sectors)
     idx_stocks = [
         # Banking
-        'BMRI.JK', 'BBRI.JK', 'BBCA.JK', 'BNI.JK', 'BTPN.JK', 'BBTN.JK', 'BRII.JK',
+        'BMRI.JK', 'BBRI.JK', 'BBCA.JK', 'BNI.JK', 'BTPN.JK', 'BRII.JK',
 
         # Mining & Energy
-        'ADHI.JK', 'ANTM.JK', 'TPIA.JK', 'ELSA.JK', 'TINS.JK', 'CPIN.JK',
+        'ADHI.JK', 'ANTM.JK', 'TPIA.JK', 'ELSA.JK',
 
         # Consumer Goods
         'ICBP.JK', 'UNVR.JK', 'GGRM.JK', 'MYOR.JK',
@@ -382,29 +368,35 @@ def main():
         'TLKM.JK', 'EXCL.JK', 'ISAT.JK',
 
         # Infrastructure
-        'WIKA.JK', 'ADHI.JK', 'PWON.JK', 'ADRO.JK',
+        'WIKA.JK', 'ADHI.JK', 'PWON.JK',
 
         # Automotive
-        'ASII.JK', 'AUTO.JK',
-
-        # Property
-        'PWON.JK',
-
-        # Others (Growth stocks)
-        'GOTO.JK', 'UNTR.JK'
+        'ASII.JK', 'AUTO.JK'
     ]
 
-    # Screen stocks
-    screener = TechnicalScreener()
-    sorted_results = screener.screen_stocks(idx_stocks)
+    # Start date (6 months of data)
+    start_date = "2025-08-01"
 
-    # Save results to CSV
+    # Initialize screener
+    screener = TechnicalScreener()
+
+    # Run screening
+    results = screener.screen_stocks(idx_stocks, start_date=start_date)
+
+    # Sort by total score
+    sorted_results = sorted(results.items(), key=lambda x: x[1]['total_score'], reverse=True)
+
+    # Display analysis
+    screener.display_analysis(sorted_results)
+
+    # Save to CSV
     import csv
 
     with open('/tmp/top_swing_stocks.csv', 'w', newline='') as csvfile:
-        fieldnames = ['rank', 'ticker', 'total_score', 'momentum_score', 'volatility_score', 'volume_score', 'price_action_score', 'rsi', 'macd_hist', 'atr', 'bandwidth', 'price', 'volume', 'date']
+        fieldnames = ['rank', 'ticker', 'total_score', 'momentum_score', 'volatility_score', 'volume_score', 'price_action_score', 'rsi', 'macd_hist', 'atr', 'bandwidth', 'price', 'volume', 'volume_ma', 'date']
 
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
         writer.writeheader()
 
         for i, (ticker, data) in enumerate(sorted_results, 1):
@@ -422,18 +414,38 @@ def main():
                 'bandwidth': data['bandwidth'],
                 'price': data['price'],
                 'volume': data['volume'],
+                'volume_ma': data['volume_ma'],
                 'date': data['date']
             })
 
     print(f"\n📊 Results saved to: /tmp/top_swing_stocks.csv")
     print(f"   Total stocks screened: {len(sorted_results)}")
+    print(f"   Top stocks for swing trading: {sorted_results[:5]}")
+
+    print("\n" + "=" * 60)
+    print("💡 RECOMMENDATION FOR SWING TRADING")
+    print("=" * 60)
+    print("\n📊 Stock Scoring Breakdown:")
+    print("   - Momentum Strength (RSI, MACD, Volume): 40 points")
+    print("   - Volatility Characteristics (ATR, Bollinger): 25 points")
+    print("   - Volume Profile (High, Spike, Trend): 20 points")
+    print("   - Price Action (Support/Resistance, Trend): 15 points")
+    print("   - TOTAL: 100 points max")
+
+    print("\n🎯 Top 5 Stocks for Swing Trading:")
+    for i, (ticker, data) in enumerate(sorted_results[:5], 1):
+        print(f"   {i}. {ticker} (Score: {data['total_score']:.0f}/100)")
 
     print("\n" + "=" * 60)
     print("✅ SCREENING COMPLETE!")
     print("=" * 60)
-    print("\n💡 Recommendation: Run this screener weekly to find new momentum plays")
-    print("💡 Best for: Swing trading (3-10 days), Market timing entries")
-    print("💡 Focus on: Stocks with score > 60/100 and positive momentum")
+    print(f"\n💡 Next Steps:")
+    print(f"   1. Review top stocks for swing trading")
+    print(f"   2. Check volume and liquidity")
+    print(f"   3. Confirm momentum and volatility")
+    print(f"   4. Run backtest on selected stocks")
+    print(f"   5. Optimize entry/exit parameters")
+
 
 if __name__ == "__main__":
     main()
