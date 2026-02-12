@@ -19,15 +19,16 @@ node_modules/
 .idea/
 *.swp
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
+# Environment Variables & Secrets
+.env
+.env.*
+*.env
+*.key
+api_key.txt
+secrets.txt
 
-# Node
-node_modules/
+# Memory files (optional, if you want to ignore them)
+memory/*.md
 
-# IDE
-.vscode/
-.idea/
-*.swp
+# Inbound media
+media/inbound/
