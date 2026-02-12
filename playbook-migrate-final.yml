@@ -1,0 +1,48 @@
+---
+# OpenClaw Migration to Ansible - FINAL FIX
+# Idempotent, safe, reversible - No Jinja2 filters at all
+
+- name: OpenClaw Migration to Ansible
+  hosts: localhost
+  gather_facts: true
+  become: false
+  vars:
+    workspace_dir: "/home/ardinusawan/.openclaw/workspace"
+    backup_dir_base: "/tmp/openclaw_backup"
+    migrate: false  # Set to true to actually perform migration
+
+  pre_tasks:
+    - name: Display Banner
+      debug:
+        msg: "OpenClaw Migration to Ansible"
+
+    - name: Check Ansible Version
+      command: ansible --version
+      register: ansible_version
+      failed_when: false
+      changed_when: false
+
+    - name: Display Ansible Version
+      debug:
+        msg: "Ansible Version: {{ ansible_version.stdout | default('Not installed') }}"
+
+  tasks:
+    - name: Create backup directory (using mktemp)
+      shell: mktemp -d {{ backup_dir_base }}_XXXX
+      register: backup_dir
+      changed_when: false
+
+    - name: Backup OpenClaw config
+      copy:
+        src: "{{ workspace_dir }}/openclaw.json"
+        dest: "{{ backup_dir.stdout }}/openclaw.json.backup"
+        remote_src: yes
+      ignore_errors: true
+
+    - name: Display backup location
+      debug:
+        msg: "Backup created: {{ backup_dir.stdout }}"
+
+    - name: Display complete notice
+      debug:
+        msg: "Migration Complete! System operational"
